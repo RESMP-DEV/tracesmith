@@ -80,6 +80,21 @@ def export_cmd(in_dir: str, out_dir: str, variant: str, min_turns: int | None,
         click.echo(f"sharegpt.jsonl: {s}")
 
 
+@cli.command("verify")
+@click.option("--in", "in_dir", default="./ats_output/redacted", type=click.Path())
+def verify_cmd(in_dir: str) -> None:
+    """Scan for leftover PII/secrets that survived redaction."""
+    from agent_trace_share.verify.scanner import scan
+    report = scan(Path(in_dir))
+    if report.ok:
+        click.echo(f"OK: {report.files_scanned} files scanned, no leftovers.")
+    else:
+        click.echo(f"FAIL: {len(report.leftovers)} leftover(s) found:")
+        for f in report.leftovers[:20]:
+            click.echo(f"  {f.path}:{f.line_no} [{f.category}] {f.snippet}")
+        raise click.exceptions.Exit(1)
+
+
 @cli.command("run")
 @click.option("--sources", default=None)
 @click.option("--root", default="~")
