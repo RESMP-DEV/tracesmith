@@ -307,6 +307,42 @@ username and home directory to treat as yours; `--private-term` /
 
 ---
 
+## Known limitations (v0.1.0)
+
+These are documented gaps in the initial release. None affects redaction safety
+or the DistillKit output shape; they're coverage/attribution/convenience items
+tracked for a follow-up.
+
+- **Timezone-city strings are not auto-discovered.** `discover_private_terms`
+  derives private terms from the username, home dir, hostname, git identity,
+  SSH config, and Pi session paths — but it does not scan for timezone-city
+  strings (e.g. `Europe/Zurich`, `America/New_York`) the way the upstream
+  redactor does. If your locale city appears in traces, add it explicitly via
+  `--private-term` (e.g. `--private-term Zurich`).
+- **`--purge-raw` is deferred to v0.1.1.** Raw extraction is always retained
+  under `<out>/raw_extracted/` so the redaction step can be re-run with
+  different config without re-extracting. There is no flag to auto-delete it
+  yet; delete the directory manually if you don't need it.
+- **MANIFEST does not report per-source export attribution.** The export
+  pipeline does not thread source tags through to the emitted rows, so a
+  per-source "exported messages / pairs" count would be misleading (an earlier
+  draft stamped the GLOBAL row count onto every source — see Fix 1 in the
+  pre-publish touch-ups). v0.1.0 carries global counts in the top-level
+  `export_summary` block of `MANIFEST.json`; the per-source block reports only
+  `raw_records` and `redaction_counts`.
+- **`ats stats` / `ats sample` source breakdown works best on `redacted/`.**
+  Exported rows (`export/messages.jsonl`, `export/sharegpt.jsonl`) lose the
+  top-level `source` field during export, so a source breakdown run against
+  `export/` cannot attribute rows back to a source. Point these commands at
+  `<out>/redacted/` for an accurate per-source view.
+- **Cursor inline-storage branch doesn't capture `toolResults`.** The Cursor
+  extractor's inline-storage path omits tool-result bubbles. This is an
+  upstream bug ported verbatim (see `agent_trace_share/extract/cursor.py`);
+  conversations extracted from Cursor's inline storage may be missing tool
+  outputs. The standard Cursor storage path is unaffected.
+
+---
+
 ## Attribution
 
 This project builds on two upstream MIT-licensed projects, vendored and

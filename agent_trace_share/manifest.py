@@ -22,12 +22,15 @@ def write_manifest(
     export_summaries: dict[str, dict],
     config_snapshot: dict[str, Any],
 ) -> Path:
+    # Per-source block carries raw extraction + redaction counts only.
+    # Export attribution is NOT per-source: the export pipeline does not thread
+    # source tags through to the emitted rows, so any per-source export count
+    # would be misleading. Global export counts live in `export_summary` below.
     sources: dict[str, Any] = {}
     for src, n in extract_counts.items():
         sources[src] = {
             "raw_records": n,
             "redaction_counts": redact_report.get("per_source", {}).get(src, {}),
-            "exported_messages": export_summaries.get("messages", {}).get("rows", 0) if src else 0,
         }
     files: dict[str, Any] = {}
     export_dir = out_root / "export"
@@ -40,6 +43,12 @@ def write_manifest(
         "tool_version": __version__,
         "config": config_snapshot,
         "sources": sources,
+        "export_summary": {
+            "messages_rows": export_summaries.get("messages", {}).get("rows", 0),
+            "messages_dropped_no_assistant": export_summaries.get("messages", {}).get("dropped_no_assistant", 0),
+            "sharegpt_pairs": export_summaries.get("sharegpt", {}).get("pairs", 0),
+            "sharegpt_dropped_trailing_user": export_summaries.get("sharegpt", {}).get("dropped_trailing_user", 0),
+        },
         "files": files,
     }
     path = out_root / "MANIFEST.json"
