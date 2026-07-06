@@ -6,11 +6,24 @@ from pathlib import Path
 
 from agent_trace_share.extract.base import Conversation, Extractor
 from agent_trace_share.extract.claude_code import ClaudeCodeExtractor
+from agent_trace_share.extract.codex import CodexExtractor
+from agent_trace_share.extract.continue_ import ContinueExtractor
+from agent_trace_share.extract.cursor import CursorExtractor
+from agent_trace_share.extract.gemini import GeminiExtractor
+from agent_trace_share.extract.opencode import OpenCodeExtractor
+from agent_trace_share.extract.trae import TraeExtractor
+from agent_trace_share.extract.windsurf import WindsurfExtractor
 
 
-# Registry grows as more extractors land (Task 14 adds the rest).
 EXTRACTORS: dict[str, type[Extractor]] = {
     "claude_code": ClaudeCodeExtractor,
+    "codex": CodexExtractor,
+    "continue": ContinueExtractor,
+    "cursor": CursorExtractor,
+    "gemini": GeminiExtractor,
+    "opencode": OpenCodeExtractor,
+    "trae": TraeExtractor,
+    "windsurf": WindsurfExtractor,
 }
 
 
