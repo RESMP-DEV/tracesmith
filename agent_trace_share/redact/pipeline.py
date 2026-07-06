@@ -58,15 +58,46 @@ def run_redact(in_dir: Path, out_dir: Path, config: RedactorConfig) -> dict[str,
     """Redact every <source>.jsonl in in_dir into out_dir.
 
     Returns a report dict with per-source counts and config snapshot.
+
+    Optional layers (each gated on its config flag, in upstream's order):
+    privacy_filter -> gitleaks_fix -> llm_residue -> gitleaks (final scan).
     """
     pipeline = RedactionPipeline(config)
     per_source: dict[str, dict[str, int]] = {}
     for src in sorted(in_dir.glob("*.jsonl")):
         per_source[src.stem] = pipeline.redact_file(src, out_dir / src.name)
 
+    layers: dict[str, Any] = {}
+
+    if config.privacy_filter:
+        # Lazy import: transformers/torch stay out of the core import path.
+        from agent_trace_share.redact.privacy_filter import (
+            PrivacyFilter,
+            privacy_filter_pass,
+        )
+        pf = PrivacyFilter(device=config.privacy_filter_device)
+        layers["privacy_filter"] = privacy_filter_pass(
+            out_dir, pf, config.privacy_filter_batch_size
+        )
+
+    if config.gitleaks_fix:
+        from agent_trace_share.redact.gitleaks import scrub_findings
+        layers["gitleaks_fix"] = scrub_findings(out_dir)
+
+    if config.llm_residue_url:
+        from agent_trace_share.redact.llm_residue import llm_residue_pass
+        layers["llm_residue"] = llm_residue_pass(
+            out_dir, base_url=config.llm_residue_url
+        )
+
+    if config.gitleaks:
+        from agent_trace_share.redact.gitleaks import run_scan
+        layers["gitleaks"] = run_scan(out_dir)
+
     report: dict[str, Any] = {
         "counts": dict(pipeline.book.counts),
         "per_source": per_source,
+        "layers": layers,
         "config": {
             "allow_public_urls": config.allow_public_urls,
             "allowed_domains": config.allowed_domains,

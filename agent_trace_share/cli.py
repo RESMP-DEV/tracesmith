@@ -33,9 +33,22 @@ def extract_cmd(sources: str | None, root: str, out: str) -> None:
 @click.option("--private-domain", "private_domains", multiple=True)
 @click.option("--user", "user_name", default=None)
 @click.option("--home", "home_dir", default=None)
+@click.option("--privacy-filter", is_flag=True,
+              help="Enable the transformers-based privacy filter (requires torch+transformers).")
+@click.option("--privacy-filter-device", "privacy_filter_device", default="auto",
+              help="Device for the privacy filter: auto, cpu, cuda, cuda:N.")
+@click.option("--gitleaks", is_flag=True,
+              help="Run a final gitleaks scan over the redacted tree (requires gitleaks).")
+@click.option("--gitleaks-fix", is_flag=True,
+              help="Iteratively redact gitleaks findings in place before the final scan.")
+@click.option("--llm-residue", "llm_residue_url", default=None,
+              help="OpenAI-compatible base URL for the LLM residue pass, e.g. http://localhost:8000.")
 def redact_cmd(in_dir: str, out_dir: str, allow_public_urls: bool,
                allowed_domains: tuple, private_terms: tuple, private_domains: tuple,
-               user_name: str | None, home_dir: str | None) -> None:
+               user_name: str | None, home_dir: str | None,
+               privacy_filter: bool, privacy_filter_device: str,
+               gitleaks: bool, gitleaks_fix: bool,
+               llm_residue_url: str | None) -> None:
     """Redact PII/secrets from extracted conversations."""
     from agent_trace_share.config import RedactorConfig
     from agent_trace_share.redact.pipeline import run_redact
@@ -45,6 +58,11 @@ def redact_cmd(in_dir: str, out_dir: str, allow_public_urls: bool,
         allowed_domains=list(allowed_domains),
         private_terms=list(private_terms),
         private_domains=list(private_domains),
+        privacy_filter=privacy_filter,
+        privacy_filter_device=privacy_filter_device,
+        gitleaks=gitleaks,
+        gitleaks_fix=gitleaks_fix,
+        llm_residue_url=llm_residue_url,
     )
     report = run_redact(Path(in_dir), Path(out_dir), config)
     click.echo(f"Redacted. Counts: {dict(report['counts'])}")
