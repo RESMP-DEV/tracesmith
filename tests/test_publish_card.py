@@ -49,8 +49,9 @@ def test_card_uses_export_summary_not_per_source_export_fields():
     assert "Conversations |" not in card   # old per-source column header
 
 
-def test_card_repo_url_is_kearm():
+def test_card_repo_url_is_resmp_dev():
     manifest = {"sources": {}, "export_summary": {}, "config": {}}
     card = render_card(manifest, repo_id="user/x")
-    assert "https://github.com/kearm/agent-trace-share" in card
+    assert "https://github.com/resmp-dev/agent-trace-share" in card
     assert "your-org" not in card
+    assert "kearm/agent-trace-share" not in card
