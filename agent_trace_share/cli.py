@@ -113,6 +113,45 @@ def verify_cmd(in_dir: str) -> None:
         raise click.exceptions.Exit(1)
 
 
+@cli.command("publish")
+@click.option("--repo", "repo_id", required=True,
+              help="HF Hub dataset repo id, e.g. user/my-traces.")
+@click.option("--in", "in_dir", default="./ats_output/export", type=click.Path())
+@click.option("--variant", default="both", type=click.Choice(["messages", "sharegpt", "both"]))
+@click.option("--private", is_flag=True, help="Create the dataset as private.")
+def publish_cmd(repo_id: str, in_dir: str, variant: str, private: bool) -> None:
+    """Upload exported variants + an auto-generated dataset card to HuggingFace Hub."""
+    from agent_trace_share.publish.huggingface import upload_variant
+    url = upload_variant(Path(in_dir), repo_id, variant=variant, private=private)
+    click.echo(f"Published: {url}")
+
+
+@cli.command("stats")
+@click.option("--in", "in_dir", default="./ats_output/export", type=click.Path())
+def stats_cmd(in_dir: str) -> None:
+    """Report corpus metrics across the exported *.jsonl files."""
+    import json as _json
+    from agent_trace_share.stats import corpus_stats
+    report = corpus_stats(Path(in_dir))
+    click.echo(_json.dumps(report, indent=2))
+
+
+@cli.command("sample")
+@click.option("--in", "in_dir", default="./ats_output/export", type=click.Path())
+@click.option("--n", "n", default=10, type=int, help="Number of conversations to sample.")
+@click.option("--seed", default=0, type=int, help="RNG seed for reproducibility.")
+@click.option("--out", "out_dir", default=None, type=click.Path(),
+              help="Optional output directory; writes sample.jsonl when provided.")
+def sample_cmd(in_dir: str, n: int, seed: int, out_dir: str | None) -> None:
+    """Sample N random conversations for pre-publish inspection."""
+    from agent_trace_share.sample import sample_conversations
+    out_path = Path(out_dir) if out_dir else None
+    rows = sample_conversations(Path(in_dir), n, seed=seed, out_dir=out_path)
+    click.echo(f"Sampled {len(rows)} conversation(s).")
+    if out_path is not None:
+        click.echo(f"Wrote {out_path / 'sample.jsonl'}")
+
+
 @cli.command("run")
 @click.option("--sources", default=None)
 @click.option("--root", default="~")
