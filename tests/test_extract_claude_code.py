@@ -4,7 +4,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from agent_trace_share.extract.claude_code import ClaudeCodeExtractor
+from tracesmith.extract.claude_code import ClaudeCodeExtractor
 
 
 def write_session_jsonl(path: Path, events: list[dict]) -> None:

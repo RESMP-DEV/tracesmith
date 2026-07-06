@@ -5,11 +5,11 @@ This project incorporates code from the following upstream projects:
 ## ai-data-extraction
 - Source: https://github.com/0xSero/ai-data-extraction
 - License: MIT
-- Used: extractors for Claude Code, Codex, Cursor, Trae, Windsurf, Continue, Gemini, OpenCode (in `agent_trace_share/extract/`).
+- Used: extractors for Claude Code, Codex, Cursor, Trae, Windsurf, Continue, Gemini, OpenCode (in `tracesmith/extract/`).
 
 ## agent-trace-redaction-methodology
 - Source: https://github.com/RodriMora/agent-trace-redaction-methodology
-- License: see ATTRIBUTION.md (MIT-compatible; preserved verbatim under `agent_trace_share/redact/`).
+- License: see ATTRIBUTION.md (MIT-compatible; preserved verbatim under `tracesmith/redact/`).
 - Used: deterministic redaction rules, schema-aware redaction, layered privacy passes, scanner, canary tests.
 
 ## DistillKit

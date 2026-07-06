@@ -3,7 +3,7 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "agent-trace-share"
+name = "tracesmith"
 version = "0.1.0"
 description = "Extract, redact, and export AI coding-agent traces for DistillKit."
 readme = "README.md"
@@ -18,7 +18,7 @@ publish = ["huggingface_hub>=0.20"]
 dev = ["pytest>=7.4", "pytest-cov>=4.1"]
 
 [project.scripts]
-ats = "agent_trace_share.cli:main"
+tracesmith = "tracesmith.cli:main"
 
 [tool.setuptools.packages.find]
-include = ["agent_trace_share*"]
+include = ["tracesmith*"]

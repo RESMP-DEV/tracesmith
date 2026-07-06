@@ -4,7 +4,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from agent_trace_share.extract.codex import CodexExtractor
+from tracesmith.extract.codex import CodexExtractor
 
 
 def write_rollout(path: Path, events: list[dict]) -> None:

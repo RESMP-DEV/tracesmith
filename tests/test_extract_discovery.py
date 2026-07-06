@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from agent_trace_share.extract.discovery import EXTRACTORS, run_extract
+from tracesmith.extract.discovery import EXTRACTORS, run_extract
 
 
 def test_extractors_registry_has_claude_code():

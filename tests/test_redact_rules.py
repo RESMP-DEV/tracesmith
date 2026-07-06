@@ -1,8 +1,8 @@
 """Tests for the split rule modules."""
 from __future__ import annotations
 
-from agent_trace_share.redact.rules import RuleContext, build_patterns, redact_string
-from agent_trace_share.redact.rules.placeholders import PlaceholderBook
+from tracesmith.redact.rules import RuleContext, build_patterns, redact_string
+from tracesmith.redact.rules.placeholders import PlaceholderBook
 
 
 def make_book_and_patterns(user_name="alexmorgan", home_dir="/Users/alexmorgan", **ctx_kwargs):

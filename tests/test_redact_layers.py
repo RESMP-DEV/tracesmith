@@ -15,7 +15,7 @@ from unittest.mock import MagicMock, patch
 
 from click.testing import CliRunner
 
-from agent_trace_share.redact import gitleaks, llm_residue
+from tracesmith.redact import gitleaks, llm_residue
 
 
 # ---------------------------------------------------------------------------
@@ -118,11 +118,11 @@ def test_privacy_filter_not_imported_at_module_load():
     We force a reload of the pipeline module and assert it does not pull in
     ``transformers`` or ``torch`` at import time.
     """
-    import agent_trace_share.redact.pipeline as pipeline_mod
+    import tracesmith.redact.pipeline as pipeline_mod
     importlib.reload(pipeline_mod)
     import sys
     # The privacy_filter module itself must import without torch/transformers.
-    import agent_trace_share.redact.privacy_filter as pf_mod
+    import tracesmith.redact.privacy_filter as pf_mod
     importlib.reload(pf_mod)
     # If a top-level torch/transformers import leaked, these would be present
     # *because of our modules*. We assert the privacy_filter module's globals
@@ -182,8 +182,8 @@ def test_llm_residue_pass_no_candidates(tmp_path):
 
 def test_pipeline_runs_gitleaks_when_flagged(tmp_path):
     """End-to-end: pipeline calls run_scan when config.gitleaks is True."""
-    from agent_trace_share.config import RedactorConfig
-    from agent_trace_share.redact import pipeline
+    from tracesmith.config import RedactorConfig
+    from tracesmith.redact import pipeline
     from tests.conftest import write_jsonl, make_conversation, make_message
 
     in_dir = tmp_path / "raw_extracted"
@@ -200,7 +200,7 @@ def test_pipeline_runs_gitleaks_when_flagged(tmp_path):
         gitleaks=True,
     )
     with patch(
-        "agent_trace_share.redact.gitleaks.run_scan",
+        "tracesmith.redact.gitleaks.run_scan",
         return_value={"available": True, "findings": 0, "status": "clean"},
     ) as mock_scan:
         report = pipeline.run_redact(in_dir, out_dir, config)
@@ -210,8 +210,8 @@ def test_pipeline_runs_gitleaks_when_flagged(tmp_path):
 
 def test_pipeline_skips_layers_when_not_flagged(tmp_path):
     """No layers key should appear when no flags are set."""
-    from agent_trace_share.config import RedactorConfig
-    from agent_trace_share.redact import pipeline
+    from tracesmith.config import RedactorConfig
+    from tracesmith.redact import pipeline
     from tests.conftest import write_jsonl, make_conversation, make_message
 
     in_dir = tmp_path / "raw_extracted"
@@ -233,7 +233,7 @@ def test_pipeline_skips_layers_when_not_flagged(tmp_path):
 
 def test_cli_redact_passes_gitleaks_flag(tmp_path):
     """--gitleaks should flow through to the config the pipeline sees."""
-    from agent_trace_share.cli import cli
+    from tracesmith.cli import cli
     from tests.conftest import write_jsonl, make_conversation, make_message
 
     raw_dir = tmp_path / "raw"
@@ -252,7 +252,7 @@ def test_cli_redact_passes_gitleaks_flag(tmp_path):
 
     runner = CliRunner()
     with patch(
-        "agent_trace_share.redact.pipeline.run_redact",
+        "tracesmith.redact.pipeline.run_redact",
         side_effect=_fake_run_redact,
     ):
         result = runner.invoke(cli, [

@@ -337,7 +337,7 @@ tracked for a follow-up.
   `<out>/redacted/` for an accurate per-source view.
 - **Cursor inline-storage branch doesn't capture `toolResults`.** The Cursor
   extractor's inline-storage path omits tool-result bubbles. This is an
-  upstream bug ported verbatim (see `agent_trace_share/extract/cursor.py`);
+  upstream bug ported verbatim (see `tracesmith/extract/cursor.py`);
   conversations extracted from Cursor's inline storage may be missing tool
   outputs. The standard Cursor storage path is unaffected.
 

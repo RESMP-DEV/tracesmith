@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from agent_trace_share.stats import corpus_stats
+from tracesmith.stats import corpus_stats
 from tests.conftest import make_conversation, make_message, write_jsonl
 
 

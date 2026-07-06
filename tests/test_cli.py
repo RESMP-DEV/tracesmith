@@ -4,7 +4,7 @@ import json
 
 from click.testing import CliRunner
 
-from agent_trace_share.cli import cli
+from tracesmith.cli import cli
 from tests.conftest import write_jsonl, make_conversation, make_message
 
 
@@ -61,7 +61,7 @@ def test_run_command_writes_manifest(tmp_path, monkeypatch):
         return {"claude_code": 1}
 
     monkeypatch.setattr(
-        "agent_trace_share.extract.discovery.run_extract", fake_run_extract
+        "tracesmith.extract.discovery.run_extract", fake_run_extract
     )
 
     runner = CliRunner()

@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from agent_trace_share.verify.scanner import scan
+from tracesmith.verify.scanner import scan
 
 
 def test_clean_redacted_dir_passes(tmp_path):

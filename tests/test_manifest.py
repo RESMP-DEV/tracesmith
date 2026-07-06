@@ -4,8 +4,8 @@ import hashlib
 import json
 from pathlib import Path
 
-from agent_trace_share import __version__
-from agent_trace_share.manifest import file_hashes, write_manifest
+from tracesmith import __version__
+from tracesmith.manifest import file_hashes, write_manifest
 
 
 def _seed_export(out_root: Path, messages_rows: int, sharegpt_rows: int) -> None:

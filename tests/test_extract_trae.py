@@ -5,7 +5,7 @@ import json
 import sqlite3
 from pathlib import Path
 
-from agent_trace_share.extract.trae import TraeExtractor
+from tracesmith.extract.trae import TraeExtractor
 
 
 def write_jsonl(path: Path, events: list[dict]) -> None:

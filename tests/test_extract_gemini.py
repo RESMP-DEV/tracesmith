@@ -4,7 +4,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from agent_trace_share.extract.gemini import GeminiExtractor
+from tracesmith.extract.gemini import GeminiExtractor
 
 
 def write_session(path: Path, data: dict) -> None:

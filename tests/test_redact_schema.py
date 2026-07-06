@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from agent_trace_share.redact.rules import RuleContext, make_redactor
-from agent_trace_share.redact.rules.placeholders import PlaceholderBook
-from agent_trace_share.redact.schema import redact_obj
+from tracesmith.redact.rules import RuleContext, make_redactor
+from tracesmith.redact.rules.placeholders import PlaceholderBook
+from tracesmith.redact.schema import redact_obj
 
 
 def make_redact():

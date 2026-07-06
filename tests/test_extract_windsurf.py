@@ -5,7 +5,7 @@ import json
 import sqlite3
 from pathlib import Path
 
-from agent_trace_share.extract.windsurf import WindsurfExtractor
+from tracesmith.extract.windsurf import WindsurfExtractor
 
 
 def make_vscdb(db_path: Path) -> None:

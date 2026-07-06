@@ -14,7 +14,7 @@ import json
 import sqlite3
 from pathlib import Path
 
-from agent_trace_share.extract.cursor import CursorExtractor
+from tracesmith.extract.cursor import CursorExtractor
 
 
 def make_vscdb(db_path: Path) -> None:

@@ -4,7 +4,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from agent_trace_share.extract.continue_ import ContinueExtractor
+from tracesmith.extract.continue_ import ContinueExtractor
 
 
 def write_session(path: Path, data: dict) -> None:

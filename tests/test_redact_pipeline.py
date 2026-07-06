@@ -3,8 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from agent_trace_share.config import RedactorConfig
-from agent_trace_share.redact.pipeline import run_redact
+from tracesmith.config import RedactorConfig
+from tracesmith.redact.pipeline import run_redact
 from tests.conftest import write_jsonl
 
 

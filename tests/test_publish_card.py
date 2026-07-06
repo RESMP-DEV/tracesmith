@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from agent_trace_share.publish.dataset_card import render_card
+from tracesmith.publish.dataset_card import render_card
 
 
 def test_card_has_yaml_frontmatter():
@@ -52,6 +52,6 @@ def test_card_uses_export_summary_not_per_source_export_fields():
 def test_card_repo_url_is_resmp_dev():
     manifest = {"sources": {}, "export_summary": {}, "config": {}}
     card = render_card(manifest, repo_id="user/x")
-    assert "https://github.com/resmp-dev/agent-trace-share" in card
+    assert "https://github.com/resmp-dev/tracesmith" in card
     assert "your-org" not in card
     assert "kearm/agent-trace-share" not in card

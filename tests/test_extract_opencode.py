@@ -5,7 +5,7 @@ import json
 import struct
 from pathlib import Path
 
-from agent_trace_share.extract.opencode import OpenCodeExtractor
+from tracesmith.extract.opencode import OpenCodeExtractor
 
 
 def write_json(path: Path, data: dict) -> None:

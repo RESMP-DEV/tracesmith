@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from agent_trace_share.export.flatten import flatten_message
+from tracesmith.export.flatten import flatten_message
 
 
 def test_plain_content_only():

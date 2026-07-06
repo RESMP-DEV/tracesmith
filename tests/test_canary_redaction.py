@@ -21,8 +21,8 @@ def test_no_canary_survives_redaction(tmp_path, canary_conversation):
     out_dir = tmp_path / "redacted"
     write_jsonl(in_dir / "claude_code.jsonl", [canary_conversation])
 
-    from agent_trace_share.config import RedactorConfig
-    from agent_trace_share.redact.pipeline import run_redact
+    from tracesmith.config import RedactorConfig
+    from tracesmith.redact.pipeline import run_redact
     run_redact(in_dir, out_dir, RedactorConfig(
         user_name="alexmorgan", home_dir="/Users/alexmorgan",
     ))
@@ -43,10 +43,10 @@ def test_no_canary_survives_export(tmp_path, canary_conversation):
     exp_dir = tmp_path / "export"
     write_jsonl(in_dir / "claude_code.jsonl", [canary_conversation])
 
-    from agent_trace_share.config import RedactorConfig, ExportConfig
-    from agent_trace_share.redact.pipeline import run_redact
-    from agent_trace_share.export.messages import export_messages
-    from agent_trace_share.export.sharegpt import export_sharegpt
+    from tracesmith.config import RedactorConfig, ExportConfig
+    from tracesmith.redact.pipeline import run_redact
+    from tracesmith.export.messages import export_messages
+    from tracesmith.export.sharegpt import export_sharegpt
 
     run_redact(in_dir, red_dir, RedactorConfig(user_name="alexmorgan", home_dir="/Users/alexmorgan"))
     export_messages(red_dir, exp_dir / "messages.jsonl", ExportConfig(variant="messages"))

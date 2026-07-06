@@ -3,8 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from agent_trace_share.config import ExportConfig
-from agent_trace_share.export.messages import export_messages
+from tracesmith.config import ExportConfig
+from tracesmith.export.messages import export_messages
 from tests.conftest import make_conversation, make_message, write_jsonl
 
 
