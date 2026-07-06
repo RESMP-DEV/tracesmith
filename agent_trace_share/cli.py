@@ -157,19 +157,66 @@ def sample_cmd(in_dir: str, n: int, seed: int, out_dir: str | None) -> None:
 @click.option("--root", default="~")
 @click.option("--out", default="./ats_output", type=click.Path())
 @click.option("--variant", default="both", type=click.Choice(["messages", "sharegpt", "both"]))
+@click.option("--user", "user_name", default=None)
+@click.option("--home", "home_dir", default=None)
 @click.pass_context
-def run_cmd(ctx, sources: str | None, root: str, out: str, variant: str) -> None:
-    """Chain extract -> redact -> export."""
+def run_cmd(ctx, sources: str | None, root: str, out: str, variant: str,
+            user_name: str | None, home_dir: str | None) -> None:
+    """Chain extract -> redact -> export -> MANIFEST.json.
+
+    Calls the underlying stage functions directly (rather than ctx.invoke on the
+    subcommands) so the per-stage return values (extract counts, redaction
+    report, export summaries) are available to feed into the MANIFEST writer.
+    """
+    from agent_trace_share.config import ExportConfig, RedactorConfig
+    from agent_trace_share.export.messages import export_messages
+    from agent_trace_share.export.sharegpt import export_sharegpt
+    from agent_trace_share.extract.discovery import run_extract
+    from agent_trace_share.manifest import write_manifest
+    from agent_trace_share.redact.pipeline import run_redact
+
     out_path = Path(out)
-    ctx.invoke(extract_cmd, sources=sources, root=root, out=out)
-    ctx.invoke(redact_cmd,
-               in_dir=str(out_path / "raw_extracted"),
-               out_dir=str(out_path / "redacted"))
-    ctx.invoke(export_cmd,
-               in_dir=str(out_path / "redacted"),
-               out_dir=str(out_path / "export"),
-               variant=variant, min_turns=None, max_turns=None,
-               min_assistant_chars=None, drop_sources=None, dedup=False)
+    src_list = sources.split(",") if sources else None
+    root_path = Path(root).expanduser()
+
+    # Stage 1: extract.
+    extract_counts = run_extract(src_list, root_path, out_path)
+    for k, v in extract_counts.items():
+        click.echo(f"extract {k}: {v} records")
+
+    # Stage 2: redact.
+    redact_config = RedactorConfig(user_name=user_name, home_dir=home_dir)
+    redact_report = run_redact(
+        out_path / "raw_extracted", out_path / "redacted", redact_config
+    )
+    click.echo(f"redact: {dict(redact_report['counts'])}")
+
+    # Stage 3: export.
+    export_config = ExportConfig(variant=variant)
+    export_summaries: dict[str, dict] = {}
+    export_dir = out_path / "export"
+    if variant in ("messages", "both"):
+        export_summaries["messages"] = export_messages(
+            out_path / "redacted", export_dir / "messages.jsonl", export_config
+        )
+        click.echo(f"export messages: {export_summaries['messages']['rows']} rows")
+    if variant in ("sharegpt", "both"):
+        export_summaries["sharegpt"] = export_sharegpt(
+            out_path / "redacted", export_dir / "sharegpt.jsonl", export_config
+        )
+        click.echo(f"export sharegpt: {export_summaries['sharegpt']['pairs']} pairs")
+
+    # Stage 4: MANIFEST.json.
+    config_snapshot = {
+        "variant": variant,
+        "redaction": redact_report["config"],
+        "export": {"min_turns": None, "max_turns": None,
+                   "min_assistant_chars": None, "drop_sources": [], "dedup": False},
+    }
+    manifest_path = write_manifest(
+        out_path, extract_counts, redact_report, export_summaries, config_snapshot
+    )
+    click.echo(f"Wrote {manifest_path}")
 
 
 def main() -> None:
