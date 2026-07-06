@@ -3,7 +3,7 @@ __pycache__/
 *.egg-info/
 .pytest_cache/
 .venv/
-ats_output/
+output/
 extracted_data/
 redacted-agent-traces/
 *.jsonl

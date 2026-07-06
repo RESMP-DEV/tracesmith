@@ -1,29 +1,25 @@
-# agent-trace-share
+# TraceSmith
 
-Extract, redact, and export AI coding-agent traces into DistillKit-ready datasets.
+TraceSmith is a command-line tool that turns the local conversation logs left
+behind by AI coding agents into clean, redacted, fine-tuning-ready datasets. It
+runs a four-stage pipeline — **extract → redact → export → manifest** — over
+agent history from eight supported sources, replaces every secret, path, email,
+and identifier with a stable placeholder, and emits DistillKit-ready JSONL plus a
+provenance manifest. Nothing about your identity is ever baked into the tool; the
+output is safe to publish straight to the HuggingFace Hub.
 
-`agent-trace-share` (`ats`) is a CLI that turns the local conversation logs left
-behind by AI coding agents (Claude Code, Codex, Cursor, Gemini CLI, Continue,
-OpenCode, Trae, Windsurf) into clean, redacted, fine-tuning-ready data. It runs
-four stages — **extract → redact → export → manifest** — and can publish the
-result straight to the HuggingFace Hub.
-
-The goal is a reproducible, privacy-first pipeline for building instruction /
-chat datasets from your own agent usage. Nothing about your identity is ever
-baked into the tool: every secret, path, email, and identifier is replaced with
-a stable placeholder before any export is written.
-
-> **Design spec:** the full architecture, locked decisions, and stage contracts
-> live in
-> [`docs/superpowers/specs/2026-07-06-agent-trace-share-design.md`](../docs/superpowers/specs/2026-07-06-agent-trace-share-design.md).
+The pipeline is reproducible and privacy-first: the rule-based redaction layer is
+always on, with optional privacy-filter, gitleaks, and LLM residue passes layered
+on top. Each source contributes its own file at every stage, so datasets can be
+sliced or dropped per-source.
 
 ---
 
 ## Status
 
 **v0.1.0** — extract (8 sources), layered redaction, two export variants,
-MANIFEST provenance, verify, stats, sample, publish. This is the first
-publishable milestone.
+MANIFEST provenance, verify, stats, sample, publish. The first publishable
+milestone.
 
 ---
 
@@ -36,7 +32,7 @@ Requires Python ≥ 3.10.
 pip install -e .
 
 # Optional extras:
-pip install -e ".[publish]"          # huggingface_hub, for `ats publish`
+pip install -e ".[publish]"          # huggingface_hub, for `tracesmith publish`
 pip install -e ".[privacy-filter]"   # transformers + torch, for the optional privacy filter
 pip install -e ".[dev]"              # pytest + pytest-cov, for running the suite
 ```
@@ -58,13 +54,13 @@ One command runs the whole pipeline end to end:
 
 ```bash
 # Extract from ~, redact, export both variants, write MANIFEST.json.
-ats run --out ./ats_output --user "$USER"
+tracesmith run --out ./output --user "$USER"
 ```
 
 This produces:
 
 ```
-ats_output/
+output/
 ├── raw_extracted/<source>.jsonl   # normalized conversations, one per source
 ├── redacted/<source>.jsonl        # PII/secrets replaced with placeholders
 ├── REDACTION_REPORT.json          # per-source redaction counts + config snapshot
@@ -77,15 +73,15 @@ ats_output/
 Then inspect before you publish:
 
 ```bash
-ats verify --in ./ats_output/redacted     # scan for leftover PII (exits 1 on findings)
-ats stats  --in ./ats_output/export       # corpus metrics as JSON
-ats sample --in ./ats_output/export -n 5 --out ./preview   # random 5-row preview
+tracesmith verify --in ./output/redacted     # scan for leftover PII (exits 1 on findings)
+tracesmith stats  --in ./output/export       # corpus metrics as JSON
+tracesmith sample --in ./output/export -n 5 --out ./preview   # random 5-row preview
 ```
 
 Happy? Publish:
 
 ```bash
-ats publish --repo youruser/my-traces --in ./ats_output/export --variant both
+tracesmith publish --repo youruser/my-traces --in ./output/export --variant both
 ```
 
 ---
@@ -114,11 +110,11 @@ be sliced or dropped per-source (see `--drop-sources` under `export`).
 
 All eight commands. Defaults are shown.
 
-### `ats run` — the whole pipeline
+### `tracesmith run` — the whole pipeline
 
 ```
-ats run [--sources a,b] [--root ~] [--out ./ats_output]
-        [--variant messages|sharegpt|both] [--user NAME] [--home DIR]
+tracesmith run [--sources a,b] [--root ~] [--out ./output]
+               [--variant messages|sharegpt|both] [--user NAME] [--home DIR]
 ```
 
 Chains **extract → redact → export → MANIFEST.json**, calling the stage
@@ -126,38 +122,38 @@ functions directly so the per-stage counts feed the manifest. Use `--user` and
 `--home` so the redactor knows which username/home path to scrub as private
 identifiers (defaults to `$USER` / `$HOME`).
 
-### `ats extract`
+### `tracesmith extract`
 
 ```
-ats extract [--sources a,b] [--root ~] [--out ./ats_output]
+tracesmith extract [--sources a,b] [--root ~] [--out ./output]
 ```
 
 Scan `--root` for installed agents and write `raw_extracted/<source>.jsonl`.
 Sources with no installation contribute an empty file (downstream stages always
 find a file). With no `--sources`, all 8 are tried.
 
-### `ats redact`
+### `tracesmith redact`
 
 ```
-ats redact [--in ./ats_output/raw_extracted] [--out ./ats_output/redacted]
-           [--allow-public-urls] [--allow-domain D]... [--private-term T]...
-           [--private-domain D]... [--user NAME] [--home DIR]
-           [--privacy-filter] [--privacy-filter-device auto|cpu|cuda|cuda:N]
-           [--gitleaks] [--gitleaks-fix]
-           [--llm-residue URL]
+tracesmith redact [--in ./output/raw_extracted] [--out ./output/redacted]
+                  [--allow-public-urls] [--allow-domain D]... [--private-term T]...
+                  [--private-domain D]... [--user NAME] [--home DIR]
+                  [--privacy-filter] [--privacy-filter-device auto|cpu|cuda|cuda:N]
+                  [--gitleaks] [--gitleaks-fix]
+                  [--llm-residue URL]
 ```
 
 Applies the layered redactor (rules → optional privacy filter → optional
 gitleaks fix → optional LLM residue → optional final gitleaks scan) and writes
 `redacted/<source>.jsonl` plus a sibling `REDACTION_REPORT.json`.
 
-### `ats export`
+### `tracesmith export`
 
 ```
-ats export [--in ./ats_output/redacted] [--out ./ats_output/export]
-           [--variant messages|sharegpt|both]
-           [--min-turns N] [--max-turns N] [--min-assistant-chars N]
-           [--drop-sources a,b] [--dedup]
+tracesmith export [--in ./output/redacted] [--out ./output/export]
+                  [--variant messages|sharegpt|both]
+                  [--min-turns N] [--max-turns N] [--min-assistant-chars N]
+                  [--drop-sources a,b] [--dedup]
 ```
 
 Flatten redacted conversations into DistillKit-ready JSONL (see *Output format*
@@ -165,39 +161,39 @@ below). Quality filters drop conversations with no assistant turn, apply
 turn-count bounds, require a minimum assistant message length, drop whole
 sources, and optionally deduplicate.
 
-### `ats verify`
+### `tracesmith verify`
 
 ```
-ats verify [--in ./ats_output/redacted]
+tracesmith verify [--in ./output/redacted]
 ```
 
 Scan the redacted tree for leftover PII/secrets that survived the pipeline.
 Exits `0` if clean, `1` if anything is found (prints up to 20 findings).
 
-### `ats publish`
+### `tracesmith publish`
 
 ```
-ats publish --repo USER/DATASET [--in ./ats_output/export]
-            [--variant messages|sharegpt|both] [--private]
+tracesmith publish --repo USER/DATASET [--in ./output/export]
+                   [--variant messages|sharegpt|both] [--private]
 ```
 
 Upload the chosen variant(s) to the HuggingFace Hub with an auto-generated
 dataset card (provenance, redaction summary, attribution). Requires the
 `[publish]` extra and a logged-in `huggingface_hub` token.
 
-### `ats stats`
+### `tracesmith stats`
 
 ```
-ats stats [--in ./ats_output/export]
+tracesmith stats [--in ./output/export]
 ```
 
 Print corpus metrics (conversation counts, token/char totals, per-source and
 per-variant breakdowns) as JSON.
 
-### `ats sample`
+### `tracesmith sample`
 
 ```
-ats sample [--in ./ats_output/export] [-n 10] [--seed 0] [--out DIR]
+tracesmith sample [--in ./output/export] [-n 10] [--seed 0] [--out DIR]
 ```
 
 Sample `n` random conversations for pre-publish inspection. With `--out`, also
@@ -207,8 +203,8 @@ writes `sample.jsonl`. Seeded for reproducibility.
 
 ## Output format
 
-`ats` writes **two interchangeable variants** of the same flattened data, so you
-can point DistillKit at whichever one your recipe expects.
+TraceSmith writes **two interchangeable variants** of the same flattened data,
+so you can point DistillKit at whichever one your recipe expects.
 
 ### `messages` variant — `export/messages.jsonl`
 
@@ -246,7 +242,7 @@ from it.
 Provenance for reproducibility: a UTC `created_at`, the `tool_version`, the
 `config` snapshot used, a per-`sources` block (raw record counts, redaction
 counts, exported message counts), and a `files` block with `sha256`/`bytes`/
-`rows` for each export artifact. Generated automatically by `ats run`.
+`rows` for each export artifact. Generated automatically by `tracesmith run`.
 
 ---
 
@@ -259,10 +255,10 @@ config snippet:
 # distillkit.yaml
 dataset:
   # Use exactly one of the two below.
-  path_messages: ./ats_output/export/messages.jsonl   # flat messages variant
-  path_sharegpt: ./ats_output/export/sharegpt.jsonl   # from/value pairs
+  path_messages: ./output/export/messages.jsonl   # flat messages variant
+  path_sharegpt: ./output/export/sharegpt.jsonl   # from/value pairs
 
-  # Quality knobs that mirror `ats export` so train/eval stay consistent.
+  # Quality knobs that mirror `tracesmith export` so train/eval stay consistent.
   min_turns: 2
   min_assistant_chars: 50
   dedup: true
@@ -297,8 +293,8 @@ rule layer always on:
 5. **Final gitleaks scan (optional, `--gitleaks`).** A read-only last line of
    defense that fails loudly if anything remains.
 
-Always run `ats verify` on the redacted tree before publishing — it's a cheap,
-dependency-free safety net that exits non-zero on any leftover.
+Always run `tracesmith verify` on the redacted tree before publishing — it's a
+cheap, dependency-free safety net that exits non-zero on any leftover.
 
 You control your own scope: `--user` and `--home` tell the redactor which
 username and home directory to treat as yours; `--private-term` /
@@ -330,11 +326,11 @@ tracked for a follow-up.
   pre-publish touch-ups). v0.1.0 carries global counts in the top-level
   `export_summary` block of `MANIFEST.json`; the per-source block reports only
   `raw_records` and `redaction_counts`.
-- **`ats stats` / `ats sample` source breakdown works best on `redacted/`.**
-  Exported rows (`export/messages.jsonl`, `export/sharegpt.jsonl`) lose the
-  top-level `source` field during export, so a source breakdown run against
-  `export/` cannot attribute rows back to a source. Point these commands at
-  `<out>/redacted/` for an accurate per-source view.
+- **`tracesmith stats` / `tracesmith sample` source breakdown works best on
+  `redacted/`.** Exported rows (`export/messages.jsonl`, `export/sharegpt.jsonl`)
+  lose the top-level `source` field during export, so a source breakdown run
+  against `export/` cannot attribute rows back to a source. Point these
+  commands at `<out>/redacted/` for an accurate per-source view.
 - **Cursor inline-storage branch doesn't capture `toolResults`.** The Cursor
   extractor's inline-storage path omits tool-result bubbles. This is an
   upstream bug ported verbatim (see `tracesmith/extract/cursor.py`);
@@ -355,11 +351,3 @@ refactored in place:
 File-by-file provenance (upstream path, commit SHA, license, and a summary of
 changes) is recorded in [`ATTRIBUTION.md`](ATTRIBUTION.md). Licensed under the
 [MIT License](LICENSE).
-
----
-
-## Design spec
-
-The architecture, locked decisions, redaction rule inventory, export contracts,
-and the full task breakdown are documented in
-[`docs/superpowers/specs/2026-07-06-agent-trace-share-design.md`](../docs/superpowers/specs/2026-07-06-agent-trace-share-design.md).

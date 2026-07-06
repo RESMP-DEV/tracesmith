@@ -14,7 +14,7 @@ def cli() -> None:
 @cli.command("extract")
 @click.option("--sources", default=None, help="Comma-separated source names. Default: all available.")
 @click.option("--root", default="~", help="Home root to scan.")
-@click.option("--out", default="./ats_output", type=click.Path(), help="Output directory.")
+@click.option("--out", default="./output", type=click.Path(), help="Output directory.")
 def extract_cmd(sources: str | None, root: str, out: str) -> None:
     """Extract raw conversations from installed agents."""
     from tracesmith.extract.discovery import run_extract
@@ -25,8 +25,8 @@ def extract_cmd(sources: str | None, root: str, out: str) -> None:
 
 
 @cli.command("redact")
-@click.option("--in", "in_dir", default="./ats_output/raw_extracted", type=click.Path())
-@click.option("--out", "out_dir", default="./ats_output/redacted", type=click.Path())
+@click.option("--in", "in_dir", default="./output/raw_extracted", type=click.Path())
+@click.option("--out", "out_dir", default="./output/redacted", type=click.Path())
 @click.option("--allow-public-urls", is_flag=True)
 @click.option("--allow-domain", "allowed_domains", multiple=True)
 @click.option("--private-term", "private_terms", multiple=True)
@@ -69,8 +69,8 @@ def redact_cmd(in_dir: str, out_dir: str, allow_public_urls: bool,
 
 
 @cli.command("export")
-@click.option("--in", "in_dir", default="./ats_output/redacted", type=click.Path())
-@click.option("--out", "out_dir", default="./ats_output/export", type=click.Path())
+@click.option("--in", "in_dir", default="./output/redacted", type=click.Path())
+@click.option("--out", "out_dir", default="./output/export", type=click.Path())
 @click.option("--variant", default="both", type=click.Choice(["messages", "sharegpt", "both"]))
 @click.option("--min-turns", type=int, default=None)
 @click.option("--max-turns", type=int, default=None)
@@ -99,7 +99,7 @@ def export_cmd(in_dir: str, out_dir: str, variant: str, min_turns: int | None,
 
 
 @cli.command("verify")
-@click.option("--in", "in_dir", default="./ats_output/redacted", type=click.Path())
+@click.option("--in", "in_dir", default="./output/redacted", type=click.Path())
 def verify_cmd(in_dir: str) -> None:
     """Scan for leftover PII/secrets that survived redaction."""
     from tracesmith.verify.scanner import scan
@@ -116,7 +116,7 @@ def verify_cmd(in_dir: str) -> None:
 @cli.command("publish")
 @click.option("--repo", "repo_id", required=True,
               help="HF Hub dataset repo id, e.g. user/my-traces.")
-@click.option("--in", "in_dir", default="./ats_output/export", type=click.Path())
+@click.option("--in", "in_dir", default="./output/export", type=click.Path())
 @click.option("--variant", default="both", type=click.Choice(["messages", "sharegpt", "both"]))
 @click.option("--private", is_flag=True, help="Create the dataset as private.")
 def publish_cmd(repo_id: str, in_dir: str, variant: str, private: bool) -> None:
@@ -127,7 +127,7 @@ def publish_cmd(repo_id: str, in_dir: str, variant: str, private: bool) -> None:
 
 
 @cli.command("stats")
-@click.option("--in", "in_dir", default="./ats_output/export", type=click.Path())
+@click.option("--in", "in_dir", default="./output/export", type=click.Path())
 def stats_cmd(in_dir: str) -> None:
     """Report corpus metrics across the exported *.jsonl files."""
     import json as _json
@@ -137,7 +137,7 @@ def stats_cmd(in_dir: str) -> None:
 
 
 @cli.command("sample")
-@click.option("--in", "in_dir", default="./ats_output/export", type=click.Path())
+@click.option("--in", "in_dir", default="./output/export", type=click.Path())
 @click.option("--n", "n", default=10, type=int, help="Number of conversations to sample.")
 @click.option("--seed", default=0, type=int, help="RNG seed for reproducibility.")
 @click.option("--out", "out_dir", default=None, type=click.Path(),
@@ -155,7 +155,7 @@ def sample_cmd(in_dir: str, n: int, seed: int, out_dir: str | None) -> None:
 @cli.command("run")
 @click.option("--sources", default=None)
 @click.option("--root", default="~")
-@click.option("--out", default="./ats_output", type=click.Path())
+@click.option("--out", default="./output", type=click.Path())
 @click.option("--variant", default="both", type=click.Choice(["messages", "sharegpt", "both"]))
 @click.option("--user", "user_name", default=None)
 @click.option("--home", "home_dir", default=None)

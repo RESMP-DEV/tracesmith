@@ -30,7 +30,7 @@ def test_file_hashes_sha256_bytes_rows(tmp_path):
 
 
 def test_write_manifest_roundtrip(tmp_path):
-    out_root = tmp_path / "ats_output"
+    out_root = tmp_path / "output"
     _seed_export(out_root, messages_rows=3, sharegpt_rows=2)
 
     # Two-source fixture: catches the old bug where every source's
@@ -96,7 +96,7 @@ def test_write_manifest_roundtrip(tmp_path):
 
 
 def test_write_manifest_handles_missing_export_files(tmp_path):
-    out_root = tmp_path / "ats_output"
+    out_root = tmp_path / "output"
     out_root.mkdir(parents=True)
     # No export dir created at all -> files block is empty, no crash.
     path = write_manifest(
@@ -124,7 +124,7 @@ def test_write_manifest_handles_missing_export_files(tmp_path):
 
 def test_write_manifest_missing_per_source_key_is_safe(tmp_path):
     # redact_report without a "per_source" key must not raise.
-    out_root = tmp_path / "ats_output"
+    out_root = tmp_path / "output"
     _seed_export(out_root, messages_rows=1, sharegpt_rows=0)
     path = write_manifest(
         out_root,
