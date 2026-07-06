@@ -5,8 +5,8 @@ from agent_trace_share.redact.rules import RuleContext, build_patterns, redact_s
 from agent_trace_share.redact.rules.placeholders import PlaceholderBook
 
 
-def make_book_and_patterns(**ctx_kwargs):
-    ctx = RuleContext(user_name="alexmorgan", home_dir="/Users/alexmorgan", **ctx_kwargs)
+def make_book_and_patterns(user_name="alexmorgan", home_dir="/Users/alexmorgan", **ctx_kwargs):
+    ctx = RuleContext(user_name=user_name, home_dir=home_dir, **ctx_kwargs)
     book = PlaceholderBook()
     patterns = build_patterns(ctx)
     return book, patterns
@@ -32,12 +32,15 @@ def test_bearer_token_redacted():
 
 
 def test_home_path_stable_placeholder():
-    book, patterns = make_book_and_patterns()
-    out = redact_string("cat /Users/alexmorgan/secret/file", patterns, book)
+    # Use a home_dir that does NOT contain the username, so private_user_name
+    # doesn't shadow home_path. (UPSTREAM_ORDER runs private_user_name before
+    # home_path; if the username appeared in the path, it would be consumed first.)
+    book, patterns = make_book_and_patterns(user_name="tester", home_dir="/customroot")
+    out = redact_string("cat /customroot/secret/file", patterns, book)
     # home_path replacement is None -> uses stable() -> [HOME_PATH:0001:sha10]
     assert "[HOME_PATH:0001:" in out
     # Same value redacted twice produces same placeholder
-    out2 = redact_string("ls /Users/alexmorgan/secret/file", patterns, book)
+    out2 = redact_string("ls /customroot/secret/file", patterns, book)
     assert out2.count("[HOME_PATH:0001:") == 1
 
 
