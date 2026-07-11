@@ -4,7 +4,7 @@ File-by-file provenance. Each entry links to the upstream path and (once vendore
 
 | File | Upstream | Upstream path | Upstream commit | License | Changes |
 |---|---|---|---|---|---|
-| `tracesmith/extract/claude_code.py` | 0xSero/ai-data-extraction | `extract_claude_code.py` | `b7520c48b2bb46d5a0d3257e80ca1a59670d5e37` | MIT | Refactored to `Extractor` protocol; adds observed current message IDs, token usage, lifecycle timestamps, and user-wrapped tool results |
+| `tracesmith/extract/claude_code.py` | 0xSero/ai-data-extraction | `extract_claude_code.py` | `b7520c48b2bb46d5a0d3257e80ca1a59670d5e37` | MIT | Refactored to `Extractor` protocol; adds observed current message IDs, token usage, lifecycle timestamps, and user-wrapped tool results; excludes structured attachment/title sidecars |
 | `tracesmith/extract/codex.py` | 0xSero/ai-data-extraction | `extract_codex.py` | `b7520c48b2bb46d5a0d3257e80ca1a59670d5e37` | MIT | Refactored to `Extractor` protocol; adds observed current response items, token totals, tool/diff counts, model, and lifecycle fields |
 | `tracesmith/extract/continue_.py` | 0xSero/ai-data-extraction | `extract_continue.py` | `b7520c48b2bb46d5a0d3257e80ca1a59670d5e37` | MIT | Refactored to `Extractor` protocol; added `find_continue_installations` (upstream had none); logic preserved |
 | `tracesmith/extract/cursor.py` | 0xSero/ai-data-extraction | `extract_cursor.py` | `b7520c48b2bb46d5a0d3257e80ca1a59670d5e37` | MIT | Refactored to `Extractor` protocol; multi-format dispatch logic (v0.2–v2.0+) preserved verbatim |

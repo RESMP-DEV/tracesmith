@@ -65,14 +65,20 @@ def trace_id(conv: dict[str, Any], metadata_key: str | bytes | None = None) -> s
     if isinstance(session_id, (str, int)) and session_id != "":
         identity: object = [source, session_id]
     else:
-        identity = [
-            source,
-            [
-                [message.get("role"), message.get("content")]
+        identity = {
+            "source": source,
+            "messages": [
+                message
                 for message in conv.get("messages", [])
                 if isinstance(message, dict)
             ],
-        ]
+            "project": {
+                key: conv.get(key)
+                for key in ("project_id", "project_hash", "project_path", "workspace_id")
+                if conv.get(key) is not None
+            },
+            "created_at": conv.get("created_at"),
+        }
     return _opaque_id("trace", identity, metadata_key)
 
 

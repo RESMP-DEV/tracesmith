@@ -77,6 +77,17 @@ def test_ids_are_keyed_opaque_and_source_namespaced() -> None:
     assert "same" not in trace_id(first, KEY)
 
 
+def test_content_fallback_identity_includes_normalized_message_metadata() -> None:
+    first = make_conversation(messages=[
+        make_message("assistant", "same text", model="model-a"),
+    ])
+    second = make_conversation(messages=[
+        make_message("assistant", "same text", model="model-b"),
+    ])
+
+    assert trace_id(first, KEY) != trace_id(second, KEY)
+
+
 def test_project_metadata_is_opaque_and_real_timestamps_are_day_bucketed() -> None:
     conv = make_conversation(
         project_path="/private/client/project",

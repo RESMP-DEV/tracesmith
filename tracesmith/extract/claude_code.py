@@ -73,6 +73,7 @@ def extract_claude_project_conversations(project_dir: Path) -> list[Conversation
             project_name = jsonl_file.parent.name if jsonl_file.parent.name != "projects" else None
             timestamps: list[str] = []
             version: str | None = None
+            record_types: set[str] = set()
             token_usage = {
                 "input": 0,
                 "output": 0,
@@ -90,6 +91,8 @@ def extract_claude_project_conversations(project_dir: Path) -> list[Conversation
                         continue
 
                     msg_type = obj.get("type")
+                    if isinstance(msg_type, str):
+                        record_types.add(msg_type)
                     timestamp = obj.get("timestamp")
                     if isinstance(timestamp, str):
                         timestamps.append(timestamp)
@@ -177,7 +180,18 @@ def extract_claude_project_conversations(project_dir: Path) -> list[Conversation
                         if tool_result and messages:
                             messages[-1].setdefault("tool_results", []).append(tool_result)
 
-            if messages:
+            assistant_models = {
+                message.get("model")
+                for message in messages
+                if message.get("role") == "assistant" and message.get("model")
+            }
+            is_sidecar = (
+                len(messages) == 2
+                and {"attachment", "queue-operation", "last-prompt"}
+                <= record_types
+            )
+            is_auxiliary = assistant_models == {"<synthetic>"} or is_sidecar
+            if messages and not is_auxiliary:
                 conversation: Conversation = {
                     "messages": messages,
                     "source": "claude_code",
