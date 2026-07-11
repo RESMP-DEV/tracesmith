@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 
 from tracesmith.config import ExportConfig
 from tracesmith.export.messages import export_messages
@@ -18,11 +17,14 @@ def test_export_one_conversation(tmp_path):
     summary = export_messages(in_dir, out_file, ExportConfig(variant="messages"))
 
     assert out_file.exists()
-    rows = [json.loads(l) for l in out_file.read_text().strip().split("\n")]
+    rows = [json.loads(line) for line in out_file.read_text().strip().split("\n")]
     assert len(rows) == 1
     assert rows[0]["messages"][0] == {"role": "user", "content": "hi"}
     assert rows[0]["messages"][1] == {"role": "assistant", "content": "hello"}
+    assert rows[0]["metadata"]["source"] == "claude_code"
+    assert rows[0]["metadata"]["counts"]["messages"] == 2
     assert summary["rows"] == 1
+    assert summary["by_source"] == {"claude_code": 1}
 
 
 def test_drops_conversation_with_no_assistant(tmp_path):
@@ -58,6 +60,6 @@ def test_rich_fields_flattened(tmp_path):
     ])
     out_file = tmp_path / "out" / "messages.jsonl"
     export_messages(in_dir, out_file, ExportConfig(variant="messages"))
-    rows = [json.loads(l) for l in out_file.read_text().strip().split("\n")]
+    rows = [json.loads(line) for line in out_file.read_text().strip().split("\n")]
     content = rows[0]["messages"][1]["content"]
     assert '<tool_use name="edit">' in content
