@@ -8,7 +8,6 @@ from __future__ import annotations
 import json
 import os
 import platform
-from collections import defaultdict
 from pathlib import Path
 from typing import Iterator
 
@@ -65,43 +64,6 @@ def extract_codex_session(session_file: Path) -> Conversation | None:
     messages: list[dict] = []
     session_meta: dict = {}
     tool_results: list[dict] = []
-    turn_metadata: dict = {}
-    performance: dict = {}
-    token_usage: dict = {}
-    diff_count = 0
-    message_origins: dict[tuple[str, str], set[str]] = defaultdict(set)
-    message_indexes: dict[tuple[str, str], int] = {}
-
-    def append_message(
-        role: str, content: object, timestamp: object, *, origin: str, **metadata
-    ) -> None:
-        if isinstance(content, list):
-            content = "\n".join(
-                str(item.get("text", ""))
-                for item in content
-                if isinstance(item, dict) and item.get("type") in {"input_text", "output_text", "text"}
-            )
-        text = str(content or "").strip()
-        key = (role, text)
-        if not text:
-            return
-        if message_origins[key] and origin not in message_origins[key]:
-            message_origins[key].add(origin)
-            existing = messages[message_indexes[key]]
-            existing.update(
-                (name, value)
-                for name, value in metadata.items()
-                if value is not None and value != "" and not existing.get(name)
-            )
-            return
-        message_origins[key].add(origin)
-        message = {"role": role, "content": text, "timestamp": timestamp}
-        message.update(
-            (name, value) for name, value in metadata.items()
-            if value is not None and value != ""
-        )
-        message_indexes[key] = len(messages)
-        messages.append(message)
 
     with open(session_file, 'r') as f:
         for line in f:
@@ -112,86 +74,39 @@ def extract_codex_session(session_file: Path) -> Conversation | None:
                 if event_type == 'session_meta':
                     session_meta = obj.get('payload', {})
 
-                elif event_type == 'turn_context':
-                    payload = obj.get('payload', {})
-                    turn_metadata.update({
-                        'model': payload.get('model'),
-                        'reasoning_effort': payload.get('effort'),
-                        'approval_policy': payload.get('approval_policy'),
-                        'collaboration_mode': (
-                            payload.get('collaboration_mode', {}).get('mode')
-                            if isinstance(payload.get('collaboration_mode'), dict)
-                            else payload.get('collaboration_mode')
-                        ),
-                        'permission_profile': (
-                            payload.get('permission_profile', {}).get('type')
-                            if isinstance(payload.get('permission_profile'), dict)
-                            else payload.get('permission_profile')
-                        ),
-                        'sandbox_profile': (
-                            payload.get('sandbox_policy', {}).get('type')
-                            if isinstance(payload.get('sandbox_policy'), dict)
-                            else payload.get('sandbox_policy')
-                        ),
-                    })
-
                 elif event_type == 'event_msg':
                     payload = obj.get('payload', {})
                     payload_type = payload.get('type')
 
                     if payload_type == 'user_message':
-                        append_message(
-                            'user', payload.get('message'), obj.get('timestamp'),
-                            origin='event_msg',
-                            context=payload.get('context'),
-                            id=payload.get('id'),
-                        )
+                        message_text = payload.get('message', '').strip()
+                        if message_text:
+                            msg = {
+                                'role': 'user',
+                                'content': message_text,
+                                'timestamp': obj.get('timestamp')
+                            }
+
+                            # Add context if available
+                            if 'context' in payload:
+                                msg['context'] = payload['context']
+
+                            messages.append(msg)
 
                     elif payload_type == 'agent_message':
-                        append_message(
-                            'assistant', payload.get('message'), obj.get('timestamp'),
-                            origin='event_msg',
-                            model=payload.get('model') or turn_metadata.get('model'),
-                            id=payload.get('id'),
-                            phase=payload.get('phase'),
-                        )
+                        message_text = payload.get('message', '').strip()
+                        if message_text:
+                            msg = {
+                                'role': 'assistant',
+                                'content': message_text,
+                                'timestamp': obj.get('timestamp')
+                            }
 
-                    elif payload_type == 'task_started':
-                        if payload.get('started_at') is not None:
-                            performance.setdefault('started_at', payload['started_at'])
-                        turn_metadata['turn_count'] = turn_metadata.get('turn_count', 0) + 1
-                        if payload.get('model_context_window') is not None:
-                            turn_metadata['context_window'] = payload['model_context_window']
+                            # Add model info if available
+                            if 'model' in payload:
+                                msg['model'] = payload['model']
 
-                    elif payload_type == 'task_complete':
-                        duration_ms = payload.get('duration_ms')
-                        if isinstance(duration_ms, (int, float)):
-                            performance['total_turn_duration_ms'] = (
-                                performance.get('total_turn_duration_ms', 0) + duration_ms
-                            )
-                        ttft = payload.get('time_to_first_token_ms')
-                        if isinstance(ttft, (int, float)):
-                            performance['min_time_to_first_token_ms'] = min(
-                                performance.get('min_time_to_first_token_ms', ttft), ttft
-                            )
-                            performance['max_time_to_first_token_ms'] = max(
-                                performance.get('max_time_to_first_token_ms', ttft), ttft
-                            )
-                        turn_metadata['status'] = 'completed'
-
-                    elif payload_type == 'turn_aborted':
-                        duration_ms = payload.get('duration_ms')
-                        if isinstance(duration_ms, (int, float)):
-                            performance['total_turn_duration_ms'] = (
-                                performance.get('total_turn_duration_ms', 0) + duration_ms
-                            )
-                        turn_metadata['status'] = 'aborted'
-
-                    elif payload_type == 'token_count':
-                        info = payload.get('info') or {}
-                        token_usage = info.get('total_token_usage') or token_usage
-                        if info.get('model_context_window') is not None:
-                            turn_metadata['context_window'] = info['model_context_window']
+                            messages.append(msg)
 
                     elif payload_type == 'tool_use':
                         # Code execution, file edits, etc.
@@ -223,45 +138,6 @@ def extract_codex_session(session_file: Path) -> Conversation | None:
                         }
                         tool_results.append(diff)
 
-                    elif payload_type == 'patch_apply_end':
-                        changes = payload.get('changes')
-                        if isinstance(changes, (dict, list)):
-                            diff_count += len(changes)
-                        elif payload.get('success'):
-                            diff_count += 1
-
-                elif event_type == 'response_item':
-                    payload = obj.get('payload', {})
-                    payload_type = payload.get('type')
-                    if payload_type in {'message', 'agent_message'}:
-                        role = payload.get('role', 'assistant')
-                        if role in {'assistant', 'user'}:
-                            append_message(
-                                role,
-                                payload.get('content'),
-                                obj.get('timestamp'),
-                                origin='response_item',
-                                id=payload.get('id'),
-                                phase=payload.get('phase'),
-                                model=turn_metadata.get('model') if role == 'assistant' else None,
-                            )
-                    elif payload_type in {'function_call', 'custom_tool_call'}:
-                        tool_results.append({
-                            'type': payload_type,
-                            'tool': payload.get('name'),
-                            'call_id': payload.get('call_id') or payload.get('id'),
-                            'status': payload.get('status'),
-                            'input': payload.get('arguments', payload.get('input')),
-                            'timestamp': obj.get('timestamp'),
-                        })
-                    elif payload_type in {'function_call_output', 'custom_tool_call_output'}:
-                        tool_results.append({
-                            'type': payload_type,
-                            'call_id': payload.get('call_id') or payload.get('id'),
-                            'output': payload.get('output'),
-                            'timestamp': obj.get('timestamp'),
-                        })
-
             except json.JSONDecodeError:
                 continue
 
@@ -270,31 +146,10 @@ def extract_codex_session(session_file: Path) -> Conversation | None:
             'messages': messages,
             'session_id': session_meta.get('id'),
             'cwd': session_meta.get('cwd'),
-            'project_path': session_meta.get('cwd'),
             'source': 'codex',
             'session_file': str(session_file),
-            'timestamp': session_meta.get('timestamp'),
-            'created_at': session_meta.get('timestamp'),
-            'version': session_meta.get('cli_version'),
-            'model_provider': session_meta.get('model_provider'),
-            'originator': session_meta.get('originator'),
-            'agent_name': session_meta.get('agent_nickname'),
-            'parent_session_id': (
-                session_meta.get('parent_thread_id') or session_meta.get('forked_from_id')
-            ),
+            'timestamp': session_meta.get('timestamp')
         }
-
-        for key, value in turn_metadata.items():
-            if value is not None and value != '':
-                conv[key] = value
-        for key, value in performance.items():
-            if value is not None and value != '':
-                conv[key] = value
-        if token_usage:
-            conv['token_usage'] = token_usage
-        if diff_count:
-            conv['diff_count'] = diff_count
-            conv['files_changed_count'] = diff_count
 
         if tool_results:
             conv['tool_results'] = tool_results

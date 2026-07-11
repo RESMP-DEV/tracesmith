@@ -9,7 +9,6 @@ from typing import Any
 KNOWN_FIELDS: list[tuple[str, str]] = [
     ("tool_use", "tool_use"),
     ("tool_uses", "tool_use"),
-    ("tool_calls", "tool_use"),
     ("tool_results", "tool_result"),
     ("tool_result", "tool_result"),
     ("code_context", "code_context"),
@@ -18,22 +17,7 @@ KNOWN_FIELDS: list[tuple[str, str]] = [
 ]
 
 # Fields that are message-level metadata, NOT training signal, kept out of content.
-META_FIELDS = {
-    "role",
-    "content",
-    "id",
-    "parent_id",
-    "model",
-    "timestamp",
-    "session_id",
-    "name",
-    "phase",
-    "status",
-    "stop_reason",
-    "usage",
-    "tokens",
-    "cost",
-}
+META_FIELDS = {"role", "content", "model", "timestamp", "session_id", "name"}
 
 
 def _render_tool_use(item: dict[str, Any]) -> str:
@@ -47,9 +31,7 @@ def _render_tool_use(item: dict[str, Any]) -> str:
 
 def _render_tool_result(item: dict[str, Any]) -> str:
     rtype = item.get("type", "")
-    text = item.get(
-        "text", item.get("output", json.dumps(item, ensure_ascii=False, sort_keys=True))
-    )
+    text = item.get("text", json.dumps(item, ensure_ascii=False, sort_keys=True))
     if rtype:
         return f'<tool_result type="{rtype}">\n{text}\n</tool_result>'
     return f"<tool_result>\n{text}\n</tool_result>"

@@ -2,13 +2,16 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 
 def render_card(manifest: dict, repo_id: str, license_name: str = "mit") -> str:
     sources = manifest.get("sources", {})
+    # Per-source block shows only raw record counts: the export pipeline does
+    # not thread source tags through to exported rows, so per-source export
+    # attribution is not available. Totals come from the global export_summary.
     src_lines = "\n".join(
-        f"| {name} | {s.get('raw_records', 0)} | "
-        f"{s.get('exported_messages', 0)} | {s.get('exported_sharegpt_pairs', 0)} |"
+        f"| {name} | {s.get('raw_records', 0)} |"
         for name, s in sorted(sources.items())
     )
     export_summary = manifest.get("export_summary", {})
@@ -38,14 +41,14 @@ DistillKit-ready coding-agent traces in two variants:
 - `messages.jsonl`: multi-turn chat (`messages` column, OpenAI chat format)
 - `sharegpt.jsonl`: instruction pairs (`conversations` column, ShareGPT format)
 
-Each row includes TraceSmith metadata schema version
-`{manifest.get('metadata_schema_version', 'unknown')}` for source, project,
-model, lifecycle, structure, tool, diff, and message-level filtering.
-
 ## Source breakdown
 
-| Source | Raw records | Conversations | ShareGPT pairs |
-|---|---:|---:|---:|
+Per-source export attribution is not available (exported rows drop the source
+tag); the table below lists raw extracted record counts. See the totals for
+exported conversation/pair counts.
+
+| Source | Raw records |
+|---|---|
 {src_lines}
 
 **Totals:** {total_msgs} conversations / {total_pairs} instruction pairs.

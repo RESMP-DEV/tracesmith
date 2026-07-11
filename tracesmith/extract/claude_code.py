@@ -71,9 +71,6 @@ def extract_claude_project_conversations(project_dir: Path) -> list[Conversation
             session_id = jsonl_file.stem
             project_path: str | None = None
             project_name = jsonl_file.parent.name if jsonl_file.parent.name != "projects" else None
-            session_metadata: dict = {}
-            timestamps: list[str] = []
-            request_ids: set[str] = set()
 
             with jsonl_file.open() as f:
                 for line in f:
@@ -85,63 +82,15 @@ def extract_claude_project_conversations(project_dir: Path) -> list[Conversation
                         continue
 
                     msg_type = obj.get("type")
-                    timestamp = obj.get("timestamp")
-                    if isinstance(timestamp, str):
-                        timestamps.append(timestamp)
-                    for source_key, normalized_key in (
-                        ("version", "version"),
-                        ("entrypoint", "entrypoint"),
-                        ("userType", "user_type"),
-                        ("isSidechain", "is_sidechain"),
-                    ):
-                        value = obj.get(source_key)
-                        if value is not None:
-                            session_metadata[normalized_key] = value
-                    if obj.get("requestId"):
-                        request_ids.add(str(obj["requestId"]))
                     if msg_type == "user":
                         message = obj.get("message", {})
                         content = message.get("content", "")
-                        tool_results: list[dict] = []
-                        if isinstance(content, list):
-                            text_parts: list[str] = []
-                            for item in content:
-                                if not isinstance(item, dict):
-                                    continue
-                                if item.get("type") == "text":
-                                    text_parts.append(str(item.get("text", "")))
-                                elif item.get("type") == "tool_result":
-                                    result_content = item.get("content", "")
-                                    if isinstance(result_content, list):
-                                        result_content = "\n".join(
-                                            str(block.get("text", ""))
-                                            for block in result_content
-                                            if isinstance(block, dict)
-                                            and block.get("type") == "text"
-                                        )
-                                    tool_results.append({
-                                        "tool_call_id": item.get("tool_use_id"),
-                                        "status": "error" if item.get("is_error") else "completed",
-                                        "output": result_content,
-                                    })
-                            content = "\n".join(part for part in text_parts if part)
                         if content:
                             msg: dict = {"role": "user", "content": content,
                                          "timestamp": obj.get("timestamp")}
-                            if message.get("id") or obj.get("uuid"):
-                                msg["id"] = message.get("id") or obj.get("uuid")
-                            if obj.get("parentUuid"):
-                                msg["parent_id"] = obj["parentUuid"]
                             if "toolUse" in obj:
                                 msg["tool_use"] = obj["toolUse"]
                             messages.append(msg)
-                        if tool_results:
-                            messages.append({
-                                "role": "tool",
-                                "content": "",
-                                "timestamp": obj.get("timestamp"),
-                                "tool_results": tool_results,
-                            })
                         if "cwd" in obj:
                             project_path = obj["cwd"]
 
@@ -164,16 +113,6 @@ def extract_claude_project_conversations(project_dir: Path) -> list[Conversation
                             msg = {"role": "assistant", "content": full_text,
                                    "model": message.get("model"),
                                    "timestamp": obj.get("timestamp")}
-                            if message.get("id") or obj.get("uuid"):
-                                msg["id"] = message.get("id") or obj.get("uuid")
-                            if obj.get("parentUuid"):
-                                msg["parent_id"] = obj["parentUuid"]
-                            if message.get("usage"):
-                                msg["usage"] = message["usage"]
-                            if message.get("stop_reason"):
-                                msg["stop_reason"] = message["stop_reason"]
-                            if obj.get("error") or obj.get("isApiErrorMessage"):
-                                msg["status"] = "error"
                             if tool_uses:
                                 msg["tool_uses"] = tool_uses
                             messages.append(msg)
@@ -184,7 +123,7 @@ def extract_claude_project_conversations(project_dir: Path) -> list[Conversation
                             messages[-1].setdefault("tool_results", []).append(tool_result)
 
             if messages:
-                conversation: Conversation = {
+                conversations.append({
                     "messages": messages,
                     "source": "claude_code",
                     "session_id": session_id,
@@ -192,14 +131,7 @@ def extract_claude_project_conversations(project_dir: Path) -> list[Conversation
                     "project_name": project_name,
                     "source_file": str(jsonl_file),
                     "installation": str(project_dir),
-                    **session_metadata,
-                }
-                if timestamps:
-                    conversation["created_at"] = min(timestamps)
-                    conversation["updated_at"] = max(timestamps)
-                if request_ids:
-                    conversation["request_count"] = len(request_ids)
-                conversations.append(conversation)
+                })
         except Exception as e:  # noqa: BLE001 - upstream swallows per-file errors
             print(f"Error processing {jsonl_file}: {e}")
             continue

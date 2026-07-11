@@ -80,8 +80,6 @@ def extract_gemini_session(session_file: Path) -> Conversation | None:
                     'content': content,
                     'timestamp': msg.get('timestamp')
                 }
-                if msg.get('id'):
-                    normalized_msg['id'] = msg['id']
                 messages.append(normalized_msg)
 
             elif msg_type == 'gemini':
@@ -101,35 +99,6 @@ def extract_gemini_session(session_file: Path) -> Conversation | None:
                 if 'tokens' in msg and msg['tokens']:
                     normalized_msg['tokens'] = msg['tokens']
 
-                if 'toolCalls' in msg and msg['toolCalls']:
-                    tool_calls = []
-                    tool_results = []
-                    for tool_call in msg['toolCalls']:
-                        if not isinstance(tool_call, dict):
-                            continue
-                        call_id = tool_call.get('id')
-                        name = tool_call.get('name')
-                        tool_calls.append({
-                            'id': call_id,
-                            'name': name,
-                            'status': tool_call.get('status'),
-                            'input': tool_call.get('args'),
-                        })
-                        if tool_call.get('result') is not None:
-                            tool_results.append({
-                                'tool_call_id': call_id,
-                                'tool': name,
-                                'status': tool_call.get('status'),
-                                'output': tool_call.get('result'),
-                            })
-                    if tool_calls:
-                        normalized_msg['tool_calls'] = tool_calls
-                    if tool_results:
-                        normalized_msg['tool_results'] = tool_results
-
-                if msg.get('id'):
-                    normalized_msg['id'] = msg['id']
-
                 messages.append(normalized_msg)
 
         if not messages:
@@ -142,8 +111,6 @@ def extract_gemini_session(session_file: Path) -> Conversation | None:
             'project_hash': data.get('projectHash'),
             'start_time': data.get('startTime'),
             'last_updated': data.get('lastUpdated'),
-            'created_at': data.get('startTime'),
-            'updated_at': data.get('lastUpdated'),
             'source_file': str(session_file)
         }
 

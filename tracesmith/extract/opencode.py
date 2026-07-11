@@ -375,7 +375,6 @@ def extract_cli_conversations(storage_dir: Path) -> list[Conversation]:
                 conversation['updated_at'] = session_data.get('time', {}).get('updated')
                 conversation['project_id'] = session_data.get('projectID')
                 conversation['directory'] = session_data.get('directory')
-                conversation['project_path'] = session_data.get('directory')
                 conversation['version'] = session_data.get('version')
 
                 # Add summary stats if available
@@ -392,7 +391,6 @@ def extract_cli_conversations(storage_dir: Path) -> list[Conversation]:
 
                 # Try to extract directory from content
                 conversation['directory'] = extract_directory_from_content(combined_content)
-                conversation['project_path'] = conversation['directory']
 
                 # Try to extract project ID from content
                 conversation['project_id'] = extract_project_id_from_content(combined_content)
