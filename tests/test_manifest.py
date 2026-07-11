@@ -43,9 +43,11 @@ def test_write_manifest_roundtrip(tmp_path):
         "config": {"allow_public_urls": False},
     }
     export_summaries = {
-        "messages": {"rows": 3, "dropped_no_assistant": 1, "dropped_filter": 0, "dropped_dedup": 0},
+        "messages": {"rows": 3, "dropped_no_assistant": 1, "dropped_filter": 0,
+                     "dropped_dedup": 0, "by_source": {"claude_code": 3}},
         "sharegpt": {"pairs": 2, "dropped_no_assistant": 0, "dropped_trailing_user": 1,
-                     "dropped_filter": 0, "dropped_dedup": 0},
+                     "dropped_filter": 0, "dropped_dedup": 0,
+                     "by_source": {"claude_code": 2}},
     }
     config_snapshot = {"variant": "both", "allow_public_urls": False}
 
@@ -57,24 +59,28 @@ def test_write_manifest_roundtrip(tmp_path):
 
     # Top-level provenance fields.
     assert manifest["tool_version"] == __version__
+    assert manifest["metadata_schema_version"] == "1.0"
     assert "created_at" in manifest and manifest["created_at"]
     assert manifest["config"] == config_snapshot
 
-    # Per-source block: raw + redaction counts only. The buggy per-source
-    # `exported_messages` field must be ABSENT from every source.
+    # Metadata-preserving exports support accurate per-source attribution.
     sources = manifest["sources"]
     assert set(sources.keys()) == {"claude_code", "cursor"}
     for name, s in sources.items():
-        assert set(s.keys()) == {"raw_records", "redaction_counts"}, (
-            f"source {name!r} has unexpected keys {set(s.keys())}; per-source "
-            "export attribution was removed (export counts are global)"
-        )
-        assert "exported_messages" not in s
-        assert "exported_sharegpt_pairs" not in s
+        assert set(s.keys()) == {
+            "raw_records",
+            "redaction_counts",
+            "exported_messages",
+            "exported_sharegpt_pairs",
+        }
     assert sources["claude_code"]["raw_records"] == 3
     assert sources["claude_code"]["redaction_counts"] == {"paths": 1}
+    assert sources["claude_code"]["exported_messages"] == 3
+    assert sources["claude_code"]["exported_sharegpt_pairs"] == 2
     assert sources["cursor"]["raw_records"] == 0
     assert sources["cursor"]["redaction_counts"] == {}
+    assert sources["cursor"]["exported_messages"] == 0
+    assert sources["cursor"]["exported_sharegpt_pairs"] == 0
 
     # Global export_summary block carries the counts that used to be (wrongly)
     # stamped onto each source.
@@ -110,9 +116,8 @@ def test_write_manifest_handles_missing_export_files(tmp_path):
     assert manifest["files"] == {}
     assert manifest["sources"]["codex"]["raw_records"] == 1
     assert manifest["sources"]["codex"]["redaction_counts"] == {"identifiers": 2}
-    # No per-source export attribution (field dropped), and no per-source keys
-    # beyond raw_records + redaction_counts.
-    assert "exported_messages" not in manifest["sources"]["codex"]
+    assert manifest["sources"]["codex"]["exported_messages"] == 0
+    assert manifest["sources"]["codex"]["exported_sharegpt_pairs"] == 0
     # Empty export_summaries -> export_summary block present but all zero.
     assert manifest["export_summary"] == {
         "messages_rows": 0,

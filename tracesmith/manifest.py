@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from tracesmith import __version__
+from tracesmith.export.metadata import SCHEMA_VERSION
 
 
 def file_hashes(path: Path) -> dict[str, Any]:
@@ -22,15 +23,15 @@ def write_manifest(
     export_summaries: dict[str, dict],
     config_snapshot: dict[str, Any],
 ) -> Path:
-    # Per-source block carries raw extraction + redaction counts only.
-    # Export attribution is NOT per-source: the export pipeline does not thread
-    # source tags through to the emitted rows, so any per-source export count
-    # would be misleading. Global export counts live in `export_summary` below.
     sources: dict[str, Any] = {}
+    messages_by_source = export_summaries.get("messages", {}).get("by_source", {})
+    sharegpt_by_source = export_summaries.get("sharegpt", {}).get("by_source", {})
     for src, n in extract_counts.items():
         sources[src] = {
             "raw_records": n,
             "redaction_counts": redact_report.get("per_source", {}).get(src, {}),
+            "exported_messages": messages_by_source.get(src, 0),
+            "exported_sharegpt_pairs": sharegpt_by_source.get(src, 0),
         }
     files: dict[str, Any] = {}
     export_dir = out_root / "export"
@@ -41,6 +42,7 @@ def write_manifest(
     manifest = {
         "created_at": datetime.now(timezone.utc).isoformat(),
         "tool_version": __version__,
+        "metadata_schema_version": SCHEMA_VERSION,
         "config": config_snapshot,
         "sources": sources,
         "export_summary": {

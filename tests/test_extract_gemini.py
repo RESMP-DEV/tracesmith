@@ -63,6 +63,46 @@ def test_extract_attaches_thoughts_and_tokens(tmp_path):
     assert asst["tokens"] == {"input": 10, "output": 5}
 
 
+def test_extract_preserves_message_ids_and_tool_calls(tmp_path):
+    install = tmp_path / ".gemini"
+    session = install / "tmp" / "h" / "chats" / "session-tools.json"
+    write_session(session, {
+        "sessionId": "tools",
+        "messages": [
+            {"type": "user", "id": "u1", "content": "run it"},
+            {
+                "type": "gemini",
+                "id": "a1",
+                "content": "running",
+                "toolCalls": [{
+                    "id": "call-1",
+                    "name": "shell",
+                    "status": "success",
+                    "args": {"command": "uv run pytest"},
+                    "result": "passed",
+                }],
+            },
+        ],
+    })
+
+    conv = list(GeminiExtractor().extract(install))[0]
+
+    assert conv["messages"][0]["id"] == "u1"
+    assert conv["messages"][1]["id"] == "a1"
+    assert conv["messages"][1]["tool_calls"] == [{
+        "id": "call-1",
+        "name": "shell",
+        "status": "success",
+        "input": {"command": "uv run pytest"},
+    }]
+    assert conv["messages"][1]["tool_results"] == [{
+        "tool_call_id": "call-1",
+        "tool": "shell",
+        "status": "success",
+        "output": "passed",
+    }]
+
+
 def test_extract_empty_install(tmp_path):
     install = tmp_path / ".gemini"
     install.mkdir(parents=True)

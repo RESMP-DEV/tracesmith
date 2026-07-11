@@ -78,9 +78,8 @@ def test_run_command_writes_manifest(tmp_path, monkeypatch):
     assert manifest["tool_version"]
     assert "claude_code" in manifest["sources"]
     assert manifest["sources"]["claude_code"]["raw_records"] == 1
-    # Per-source export attribution was removed (export counts are global);
-    # the per-source block must carry only raw_records + redaction_counts.
-    assert "exported_messages" not in manifest["sources"]["claude_code"]
+    assert manifest["sources"]["claude_code"]["exported_messages"] == 1
+    assert manifest["sources"]["claude_code"]["exported_sharegpt_pairs"] == 1
     assert manifest["export_summary"]["messages_rows"] >= 1
     assert manifest["export_summary"]["sharegpt_pairs"] >= 0
     assert "export/messages.jsonl" in manifest["files"]

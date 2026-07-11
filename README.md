@@ -152,14 +152,20 @@ gitleaks fix → optional LLM residue → optional final gitleaks scan) and writ
 ```
 tracesmith export [--in ./output/redacted] [--out ./output/export]
                   [--variant messages|sharegpt|both]
-                  [--min-turns N] [--max-turns N] [--min-assistant-chars N]
-                  [--drop-sources a,b] [--dedup]
+                  [--min-messages N] [--max-messages N] [--min-assistant-chars N]
+                  [--include-source GLOB]... [--drop-sources a,b]
+                  [--project GLOB]... [--model GLOB]... [--status GLOB]...
+                  [--since TIME] [--until TIME]
+                  [--require-tools] [--require-diffs] [--dedup]
 ```
 
 Flatten redacted conversations into DistillKit-ready JSONL (see *Output format*
 below). Quality filters drop conversations with no assistant turn, apply
-turn-count bounds, require a minimum assistant message length, drop whole
-sources, and optionally deduplicate.
+message-count bounds (`--min-turns` / `--max-turns` remain aliases), require a
+minimum assistant message length, select source
+families or variants, projects, models, lifecycle status, and time windows,
+require tool/diff evidence, and optionally deduplicate. Globs are
+case-insensitive. Export summaries include auditable drop counts by reason.
 
 ### `tracesmith verify`
 
@@ -187,8 +193,9 @@ dataset card (provenance, redaction summary, attribution). Requires the
 tracesmith stats [--in ./output/export]
 ```
 
-Print corpus metrics (conversation counts, token/char totals, per-source and
-per-variant breakdowns) as JSON.
+Print unique-trace metrics (source/model/status, token and character totals,
+tool/diff coverage) plus physical row counts per export variant. Stable trace
+IDs prevent `messages` and `sharegpt` copies from inflating conversation totals.
 
 ### `tracesmith sample`
 
@@ -211,25 +218,34 @@ so you can point DistillKit at whichever one your recipe expects.
 One JSON object per conversation, DistillKit's flat `messages` schema. Each
 message's rich fields (`tool_use`, `tool_results`, `suggested_diffs`, …) are
 flattened into a single string `content`, and the original `role` is preserved.
+Every row also includes a versioned, privacy-safe `metadata` envelope.
 
 ```json
 {"messages": [
   {"role": "user", "content": "add a greeting function to the project"},
   {"role": "assistant", "content": "I'll create it.\n\n<tool_use name=\"write_file\">\n{...}\n</tool_use>"}
-]}
+], "metadata": {
+  "schema_version": "1.0",
+  "trace_id": "ts_...",
+  "source": {"family": "claude_code", "variant": "claude_code"},
+  "models": ["claude-sonnet-4-5"],
+  "counts": {"messages": 2, "tool_calls": 1},
+  "flags": {"has_tools": true, "has_diffs": false}
+}}
 ```
 
 ### `sharegpt` variant — `export/sharegpt.jsonl`
 
 One JSON object per **user→assistant instruction pair** (independent pairs, no
 rolling context). A leading `system` message, if present, is attached to the
-first pair. Uses the classic `from`/`value` shape:
+first pair. Uses the classic `from`/`value` shape and carries the same metadata
+plus the pair index/count:
 
 ```json
 {"conversations": [
   {"from": "human", "value": "add a greeting function to the project"},
   {"from": "gpt",   "value": "I'll create it.\n\n<tool_use name=\"write_file\">\n{...}\n</tool_use>"}
-]}
+], "metadata": {"schema_version": "1.0", "pair": {"index": 0, "count": 1}}}
 ```
 
 Worked, redacted examples of both variants live in
@@ -240,9 +256,27 @@ from it.
 ### `MANIFEST.json`
 
 Provenance for reproducibility: a UTC `created_at`, the `tool_version`, the
-`config` snapshot used, a per-`sources` block (raw record counts, redaction
-counts, exported message counts), and a `files` block with `sha256`/`bytes`/
-`rows` for each export artifact. Generated automatically by `tracesmith run`.
+`metadata_schema_version`, the `config` snapshot used, accurate per-source raw,
+redaction, conversation, and pair counts, and a `files` block with
+`sha256`/`bytes`/`rows` for each export artifact. Generated automatically by
+`tracesmith run`.
+
+### Metadata envelope
+
+The envelope deliberately keeps filterable structure without copying message,
+tool-input, or tool-output payloads. It includes an opaque stable trace ID,
+source family and variant, normalized session/project lifecycle fields, models,
+role and character counts, normalized token usage and performance fields,
+tool/result/context/diff counts, completion flags, approved scalar source
+metadata, safe per-message usage/token fields, and tool names/status/call IDs.
+Source-file, installation, workspace, raw payloads, and raw session identifiers
+are excluded from public exports.
+
+Trace and project IDs are keyed pseudonyms. Set `TRACESMITH_METADATA_KEY` to a
+private, stable value when IDs must remain consistent across separate export
+runs. Without it, TraceSmith generates a fresh key for each export invocation;
+both variants created by `--variant both` still share the same IDs. The key is
+never written to the export or manifest.
 
 ---
 
@@ -319,18 +353,6 @@ tracked for a follow-up.
   under `<out>/raw_extracted/` so the redaction step can be re-run with
   different config without re-extracting. There is no flag to auto-delete it
   yet; delete the directory manually if you don't need it.
-- **MANIFEST does not report per-source export attribution.** The export
-  pipeline does not thread source tags through to the emitted rows, so a
-  per-source "exported messages / pairs" count would be misleading (an earlier
-  draft stamped the GLOBAL row count onto every source — see Fix 1 in the
-  pre-publish touch-ups). v0.1.0 carries global counts in the top-level
-  `export_summary` block of `MANIFEST.json`; the per-source block reports only
-  `raw_records` and `redaction_counts`.
-- **`tracesmith stats` / `tracesmith sample` source breakdown works best on
-  `redacted/`.** Exported rows (`export/messages.jsonl`, `export/sharegpt.jsonl`)
-  lose the top-level `source` field during export, so a source breakdown run
-  against `export/` cannot attribute rows back to a source. Point these
-  commands at `<out>/redacted/` for an accurate per-source view.
 - **Cursor inline-storage branch doesn't capture `toolResults`.** The Cursor
   extractor's inline-storage path omits tool-result bubbles. This is an
   upstream bug ported verbatim (see `tracesmith/extract/cursor.py`);

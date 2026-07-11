@@ -5,8 +5,13 @@ from tracesmith.publish.dataset_card import render_card
 
 def test_card_has_yaml_frontmatter():
     manifest = {
-        "sources": {"claude_code": {"raw_records": 7}},
+        "sources": {"claude_code": {
+            "raw_records": 7,
+            "exported_messages": 6,
+            "exported_sharegpt_pairs": 12,
+        }},
         "export_summary": {"messages_rows": 10, "sharegpt_pairs": 22},
+        "metadata_schema_version": "1.0",
         "config": {"gitleaks": True},
     }
     card = render_card(manifest, repo_id="user/my-traces")
@@ -14,21 +19,27 @@ def test_card_has_yaml_frontmatter():
     assert "license: mit" in card
     assert "user/my-traces" in card
     assert "claude_code" in card
-    # Per-source raw record count is rendered in the source table.
-    assert "| 7 |" in card
+    assert "| claude_code | 7 | 6 | 12 |" in card
+    assert "metadata schema version" in card
+    assert "`1.0`" in card
     # Totals come from export_summary, not summed per-source fields.
     assert "10 conversations" in card
     assert "22 instruction pairs" in card
 
 
-def test_card_uses_export_summary_not_per_source_export_fields():
-    # Regression: the card used to sum per-source `exported_messages` /
-    # `exported_sharegpt_pairs`. Those fields no longer exist; totals must come
-    # from the global `export_summary` block.
+def test_card_shows_per_source_attribution_and_global_totals():
     manifest = {
         "sources": {
-            "claude_code": {"raw_records": 5},
-            "cursor": {"raw_records": 0},
+            "claude_code": {
+                "raw_records": 5,
+                "exported_messages": 4,
+                "exported_sharegpt_pairs": 7,
+            },
+            "cursor": {
+                "raw_records": 2,
+                "exported_messages": 1,
+                "exported_sharegpt_pairs": 1,
+            },
         },
         "export_summary": {
             "messages_rows": 9,
@@ -39,14 +50,10 @@ def test_card_uses_export_summary_not_per_source_export_fields():
         "config": {},
     }
     card = render_card(manifest, repo_id="user/traces")
-    # Totals reflect export_summary, NOT a sum of per-source raw_records (5)
-    # and NOT the old per-source export fields.
     assert "9 conversations" in card
     assert "8 instruction pairs" in card
-    # The dropped per-source export columns are gone: header has one count col.
-    assert "Raw records" in card
-    assert "ShareGPT pairs |" not in card  # old per-source column header
-    assert "Conversations |" not in card   # old per-source column header
+    assert "| claude_code | 5 | 4 | 7 |" in card
+    assert "| cursor | 2 | 1 | 1 |" in card
 
 
 def test_card_repo_url_is_resmp_dev():

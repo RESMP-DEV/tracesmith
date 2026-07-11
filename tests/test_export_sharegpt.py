@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 
 from tracesmith.config import ExportConfig
 from tracesmith.export.sharegpt import export_sharegpt
@@ -18,7 +17,7 @@ def test_two_turn_conversation_yields_two_pairs(tmp_path):
     ])
     out_file = tmp_path / "out" / "sharegpt.jsonl"
     summary = export_sharegpt(in_dir, out_file, ExportConfig(variant="sharegpt"))
-    rows = [json.loads(l) for l in out_file.read_text().strip().split("\n")]
+    rows = [json.loads(line) for line in out_file.read_text().strip().split("\n")]
     assert len(rows) == 2
     assert rows[0]["conversations"] == [
         {"from": "human", "value": "q1"},
@@ -28,6 +27,9 @@ def test_two_turn_conversation_yields_two_pairs(tmp_path):
         {"from": "human", "value": "q2"},
         {"from": "gpt", "value": "a2"},
     ]
+    assert rows[0]["metadata"]["source"]["family"] == "claude_code"
+    assert rows[0]["metadata"]["pair"] == {"index": 0, "count": 2}
+    assert rows[1]["metadata"]["pair"] == {"index": 1, "count": 2}
     assert summary["pairs"] == 2
 
 
@@ -41,7 +43,7 @@ def test_trailing_user_without_assistant_dropped(tmp_path):
     ])
     out_file = tmp_path / "out" / "sharegpt.jsonl"
     summary = export_sharegpt(in_dir, out_file, ExportConfig(variant="sharegpt"))
-    rows = [json.loads(l) for l in out_file.read_text().strip().split("\n")]
+    rows = [json.loads(line) for line in out_file.read_text().strip().split("\n")]
     assert len(rows) == 1
     assert summary["dropped_trailing_user"] == 1
 
@@ -57,7 +59,7 @@ def test_system_prepended_to_first_pair_only(tmp_path):
     ])
     out_file = tmp_path / "out" / "sharegpt.jsonl"
     export_sharegpt(in_dir, out_file, ExportConfig(variant="sharegpt"))
-    rows = [json.loads(l) for l in out_file.read_text().strip().split("\n")]
+    rows = [json.loads(line) for line in out_file.read_text().strip().split("\n")]
     # First pair has system prepended
     assert rows[0]["conversations"][0] == {"from": "system", "value": "be helpful"}
     assert rows[0]["conversations"][1] == {"from": "human", "value": "q1"}

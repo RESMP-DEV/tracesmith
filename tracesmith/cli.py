@@ -72,14 +72,29 @@ def redact_cmd(in_dir: str, out_dir: str, allow_public_urls: bool,
 @click.option("--in", "in_dir", default="./output/redacted", type=click.Path())
 @click.option("--out", "out_dir", default="./output/export", type=click.Path())
 @click.option("--variant", default="both", type=click.Choice(["messages", "sharegpt", "both"]))
-@click.option("--min-turns", type=int, default=None)
-@click.option("--max-turns", type=int, default=None)
+@click.option("--min-messages", "--min-turns", "min_turns", type=int, default=None)
+@click.option("--max-messages", "--max-turns", "max_turns", type=int, default=None)
 @click.option("--min-assistant-chars", type=int, default=None)
+@click.option("--include-source", "include_sources", multiple=True,
+              help="Include source family/variant glob; repeatable.")
 @click.option("--drop-sources", default=None, help="Comma-separated source names to drop")
+@click.option("--project", "projects", multiple=True,
+              help="Include project name/path glob; repeatable.")
+@click.option("--model", "models", multiple=True,
+              help="Include model glob; repeatable.")
+@click.option("--status", "statuses", multiple=True,
+              help="Include session status glob; repeatable.")
+@click.option("--since", default=None, help="Include traces at/after ISO timestamp or epoch.")
+@click.option("--until", default=None, help="Include traces at/before ISO timestamp or epoch.")
+@click.option("--require-tools", is_flag=True)
+@click.option("--require-diffs", is_flag=True)
 @click.option("--dedup", is_flag=True)
 def export_cmd(in_dir: str, out_dir: str, variant: str, min_turns: int | None,
                max_turns: int | None, min_assistant_chars: int | None,
-               drop_sources: str | None, dedup: bool) -> None:
+               include_sources: tuple[str, ...], drop_sources: str | None,
+               projects: tuple[str, ...], models: tuple[str, ...],
+               statuses: tuple[str, ...], since: str | None, until: str | None,
+               require_tools: bool, require_diffs: bool, dedup: bool) -> None:
     """Export redacted conversations to DistillKit-ready formats."""
     from tracesmith.config import ExportConfig
     from tracesmith.export.messages import export_messages
@@ -87,7 +102,14 @@ def export_cmd(in_dir: str, out_dir: str, variant: str, min_turns: int | None,
     config = ExportConfig(
         variant=variant, min_turns=min_turns, max_turns=max_turns,
         min_assistant_chars=min_assistant_chars,
-        drop_sources=drop_sources.split(",") if drop_sources else [],
+        include_sources=list(include_sources),
+        drop_sources=(
+            [source.strip() for source in drop_sources.split(",") if source.strip()]
+            if drop_sources else []
+        ),
+        projects=list(projects), models=list(models), statuses=list(statuses),
+        since=since, until=until,
+        require_tools=require_tools, require_diffs=require_diffs,
         dedup=dedup,
     )
     if variant in ("messages", "both"):
@@ -211,7 +233,11 @@ def run_cmd(ctx, sources: str | None, root: str, out: str, variant: str,
         "variant": variant,
         "redaction": redact_report["config"],
         "export": {"min_turns": None, "max_turns": None,
-                   "min_assistant_chars": None, "drop_sources": [], "dedup": False},
+                   "min_assistant_chars": None, "include_sources": [],
+                   "drop_sources": [], "projects": [], "models": [],
+                   "statuses": [], "since": None, "until": None,
+                   "require_tools": False, "require_diffs": False,
+                   "dedup": False},
     }
     manifest_path = write_manifest(
         out_path, extract_counts, redact_report, export_summaries, config_snapshot
