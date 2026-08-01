@@ -22,7 +22,9 @@ EXAMPLE_METADATA_KEY = "tracesmith-public-example-v1"
 
 
 def render_examples() -> dict[str, str]:
-    raw = json.loads((ROOT / "examples" / "sample_input.jsonl").read_text())
+    raw = json.loads(
+        (ROOT / "examples" / "sample_input.jsonl").read_text(encoding="utf-8")
+    )
     redactor = RedactionPipeline(
         RedactorConfig(user_name="fixture-user", home_dir="/Users/fixture-user")
     )
@@ -33,7 +35,8 @@ def render_examples() -> dict[str, str]:
         input_dir = temp_root / "input"
         input_dir.mkdir()
         (input_dir / "claude_code.jsonl").write_text(
-            json.dumps(redacted, ensure_ascii=False) + "\n"
+            json.dumps(redacted, ensure_ascii=False) + "\n",
+            encoding="utf-8",
         )
         config = ExportConfig(metadata_key=EXAMPLE_METADATA_KEY)
         messages = temp_root / "messages.jsonl"
@@ -41,8 +44,8 @@ def render_examples() -> dict[str, str]:
         export_messages(input_dir, messages, config)
         export_sharegpt(input_dir, sharegpt, config)
         return {
-            "messages_expected.jsonl": messages.read_text(),
-            "sharegpt_expected.jsonl": sharegpt.read_text(),
+            "messages_expected.jsonl": messages.read_text(encoding="utf-8"),
+            "sharegpt_expected.jsonl": sharegpt.read_text(encoding="utf-8"),
         }
 
 
@@ -57,7 +60,7 @@ def main() -> int:
         name
         for name, content in rendered.items()
         if not (ROOT / "examples" / name).exists()
-        or (ROOT / "examples" / name).read_text() != content
+        or (ROOT / "examples" / name).read_text(encoding="utf-8") != content
     ]
     if args.check:
         if stale:
@@ -65,7 +68,7 @@ def main() -> int:
             return 1
         return 0
     for name, content in rendered.items():
-        (ROOT / "examples" / name).write_text(content)
+        (ROOT / "examples" / name).write_text(content, encoding="utf-8")
     return 0
 
 
