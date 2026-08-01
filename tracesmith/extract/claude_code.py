@@ -80,6 +80,7 @@ def extract_claude_project_conversations(project_dir: Path) -> list[Conversation
                 "cached_input": 0,
                 "cache_write": 0,
             }
+            usage_by_message_id: dict[str, dict[str, int | float]] = {}
 
             with jsonl_file.open() as f:
                 for line in f:
@@ -113,6 +114,7 @@ def extract_claude_project_conversations(project_dir: Path) -> list[Conversation
                                     wrapped_results.append({
                                         "tool_call_id": item.get("tool_use_id"),
                                         "status": "error" if item.get("is_error") else "completed",
+                                        "output": item.get("content"),
                                     })
                             content = "\n".join(text_parts)
                         if content:
@@ -162,6 +164,7 @@ def extract_claude_project_conversations(project_dir: Path) -> list[Conversation
                                 msg["stop_reason"] = message["stop_reason"]
                             usage = message.get("usage")
                             if isinstance(usage, dict):
+                                normalized_usage: dict[str, int | float] = {}
                                 for source_key, target_key in (
                                     ("input_tokens", "input"),
                                     ("output_tokens", "output"),
@@ -170,7 +173,17 @@ def extract_claude_project_conversations(project_dir: Path) -> list[Conversation
                                 ):
                                     value = usage.get(source_key)
                                     if isinstance(value, (int, float)):
-                                        token_usage[target_key] += value
+                                        normalized_usage[target_key] = value
+                                message_id = message.get("id")
+                                if isinstance(message_id, str) and message_id:
+                                    snapshot = usage_by_message_id.setdefault(
+                                        message_id, {}
+                                    )
+                                    for key, value in normalized_usage.items():
+                                        snapshot[key] = max(snapshot.get(key, 0), value)
+                                else:
+                                    for key, value in normalized_usage.items():
+                                        token_usage[key] += value
                             if tool_uses:
                                 msg["tool_uses"] = tool_uses
                             messages.append(msg)
@@ -206,6 +219,9 @@ def extract_claude_project_conversations(project_dir: Path) -> list[Conversation
                     conversation["updated_at"] = max(timestamps)
                 if version:
                     conversation["version"] = version
+                for snapshot in usage_by_message_id.values():
+                    for key, value in snapshot.items():
+                        token_usage[key] += value
                 nonzero_usage = {
                     key: value for key, value in token_usage.items() if value
                 }

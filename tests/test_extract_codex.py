@@ -91,12 +91,24 @@ def test_extracts_current_codex_shape_observed_in_local_rollouts(tmp_path):
             "type": "message", "role": "user",
             "content": [{"type": "input_text", "text": "hello"}],
         }},
+        {"type": "event_msg", "timestamp": "2026-07-10T10:00:03Z", "payload": {
+            "type": "tool_use", "call_id": "call-1", "tool": "exec_command",
+            "input": {},
+        }},
         {"type": "response_item", "timestamp": "2026-07-10T10:00:03Z", "payload": {
             "type": "function_call", "name": "exec_command", "call_id": "call-1",
             "arguments": "{}",
         }},
+        {"type": "event_msg", "timestamp": "2026-07-10T10:00:04Z", "payload": {
+            "type": "tool_result", "call_id": "call-1", "tool": "exec_command",
+            "output": "ok",
+        }},
         {"type": "response_item", "timestamp": "2026-07-10T10:00:04Z", "payload": {
             "type": "function_call_output", "call_id": "call-1", "output": "ok",
+        }},
+        {"type": "event_msg", "timestamp": "2026-07-10T10:00:05Z", "payload": {
+            "type": "diff", "call_id": "call-2", "file": "a.py",
+            "diff": "+change",
         }},
         {"type": "event_msg", "timestamp": "2026-07-10T10:00:05Z", "payload": {
             "type": "patch_apply_end", "call_id": "call-2", "success": True,
@@ -124,7 +136,7 @@ def test_extracts_current_codex_shape_observed_in_local_rollouts(tmp_path):
         }},
     ])
 
-    conv = list(CodexExtractor().extract(install))[0]
+    conv = next(iter(CodexExtractor().extract(install)))
 
     assert [(message["role"], message["content"]) for message in conv["messages"]] == [
         ("user", "hello"),
@@ -144,6 +156,35 @@ def test_extracts_current_codex_shape_observed_in_local_rollouts(tmp_path):
         "reasoning": 10,
         "total": 140,
     }
+
+
+def test_repeated_turn_text_is_not_deduplicated_across_turns(tmp_path):
+    install = tmp_path / ".codex"
+    session = install / "sessions" / "rollout-repeat.jsonl"
+    write_rollout(session, [
+        {"type": "session_meta", "payload": {"id": "repeat"}},
+        {"type": "event_msg", "payload": {"type": "user_message", "message": "yes"}},
+        {"type": "response_item", "payload": {
+            "type": "message", "role": "user",
+            "content": [{"type": "input_text", "text": "yes"}],
+        }},
+        {"type": "event_msg", "payload": {"type": "agent_message", "message": "done"}},
+        {"type": "response_item", "payload": {
+            "type": "message", "role": "assistant",
+            "content": [{"type": "output_text", "text": "done"}],
+        }},
+        {"type": "event_msg", "payload": {"type": "user_message", "message": "yes"}},
+        {"type": "response_item", "payload": {
+            "type": "message", "role": "user",
+            "content": [{"type": "input_text", "text": "yes"}],
+        }},
+    ])
+
+    conv = next(iter(CodexExtractor().extract(install)))
+
+    assert [message["content"] for message in conv["messages"]] == [
+        "yes", "done", "yes",
+    ]
 
 
 def test_extract_empty_install(tmp_path):

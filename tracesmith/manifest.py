@@ -42,8 +42,10 @@ def write_manifest(
     export_summary = {
         "messages_rows": export_summaries.get("messages", {}).get("rows", 0),
         "messages_dropped_no_assistant": export_summaries.get("messages", {}).get("dropped_no_assistant", 0),
+        "messages_dropped_by_reason": export_summaries.get("messages", {}).get("dropped_by_reason", {}),
         "sharegpt_pairs": export_summaries.get("sharegpt", {}).get("pairs", 0),
         "sharegpt_dropped_trailing_user": export_summaries.get("sharegpt", {}).get("dropped_trailing_user", 0),
+        "sharegpt_dropped_by_reason": export_summaries.get("sharegpt", {}).get("dropped_by_reason", {}),
     }
     messages_by_source = export_summaries.get("messages", {}).get("by_source", {})
     sharegpt_by_source = export_summaries.get("sharegpt", {}).get("by_source", {})

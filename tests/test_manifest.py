@@ -43,9 +43,16 @@ def test_write_manifest_roundtrip(tmp_path):
         "config": {"allow_public_urls": False},
     }
     export_summaries = {
-        "messages": {"rows": 3, "dropped_no_assistant": 1, "dropped_filter": 0, "dropped_dedup": 0},
+        "messages": {
+            "rows": 3,
+            "dropped_no_assistant": 1,
+            "dropped_filter": 2,
+            "dropped_dedup": 0,
+            "dropped_by_reason": {"source_not_included": 2},
+        },
         "sharegpt": {"pairs": 2, "dropped_no_assistant": 0, "dropped_trailing_user": 1,
-                     "dropped_filter": 0, "dropped_dedup": 0},
+                     "dropped_filter": 1, "dropped_dedup": 0,
+                     "dropped_by_reason": {"before_since": 1}},
     }
     config_snapshot = {"variant": "both", "allow_public_urls": False}
 
@@ -82,8 +89,10 @@ def test_write_manifest_roundtrip(tmp_path):
     assert manifest["export_summary"] == {
         "messages_rows": 3,
         "messages_dropped_no_assistant": 1,
+        "messages_dropped_by_reason": {"source_not_included": 2},
         "sharegpt_pairs": 2,
         "sharegpt_dropped_trailing_user": 1,
+        "sharegpt_dropped_by_reason": {"before_since": 1},
     }
 
     # Files block hashes both export variants and matches their byte/row counts.
@@ -118,8 +127,10 @@ def test_write_manifest_handles_missing_export_files(tmp_path):
     assert manifest["export_summary"] == {
         "messages_rows": 0,
         "messages_dropped_no_assistant": 0,
+        "messages_dropped_by_reason": {},
         "sharegpt_pairs": 0,
         "sharegpt_dropped_trailing_user": 0,
+        "sharegpt_dropped_by_reason": {},
     }
 
 

@@ -4,6 +4,9 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from tracesmith.config import ExportConfig
+from tracesmith.export.messages import export_messages
+from tracesmith.export.sharegpt import export_sharegpt
 from tracesmith.extract.claude_code import ClaudeCodeExtractor
 
 
@@ -120,7 +123,7 @@ def test_extracts_current_claude_shape_observed_in_local_sessions(tmp_path):
         },
     ])
 
-    conv = list(ClaudeCodeExtractor().extract(install))[0]
+    conv = next(iter(ClaudeCodeExtractor().extract(install)))
 
     assert conv["created_at"] == "2026-07-10T10:00:00Z"
     assert conv["updated_at"] == "2026-07-10T10:00:02Z"
@@ -136,7 +139,75 @@ def test_extracts_current_claude_shape_observed_in_local_sessions(tmp_path):
     assert conv["messages"][2]["tool_results"] == [{
         "tool_call_id": "tool-1",
         "status": "completed",
+        "output": "ok",
     }]
+
+
+def test_counts_repeated_claude_usage_once_per_message_id(tmp_path):
+    install = tmp_path / ".claude"
+    session = install / "projects" / "p" / "usage.jsonl"
+    write_session_jsonl(session, [
+        {"type": "user", "message": {"content": "go"}},
+        {"type": "assistant", "message": {
+            "id": "message-1",
+            "content": [{"type": "text", "text": "part one"}],
+            "model": "claude-model",
+            "usage": {"input_tokens": 10, "output_tokens": 3},
+        }},
+        {"type": "assistant", "message": {
+            "id": "message-1",
+            "content": [{"type": "text", "text": "part two"}],
+            "model": "claude-model",
+            "usage": {"input_tokens": 10, "output_tokens": 5},
+        }},
+        {"type": "assistant", "message": {
+            "content": [{"type": "text", "text": "anonymous"}],
+            "model": "claude-model",
+            "usage": {"input_tokens": 2, "output_tokens": 1},
+        }},
+    ])
+
+    conv = next(iter(ClaudeCodeExtractor().extract(install)))
+
+    assert conv["token_usage"] == {"input": 12, "output": 6}
+
+
+def test_wrapped_tool_result_survives_both_exports(tmp_path):
+    install = tmp_path / ".claude"
+    session = install / "projects" / "p" / "tools.jsonl"
+    write_session_jsonl(session, [
+        {"type": "user", "message": {"content": "run it"}},
+        {"type": "assistant", "message": {
+            "content": [{
+                "type": "tool_use", "id": "tool-1", "name": "Bash", "input": {},
+            }],
+            "model": "claude-model",
+        }},
+        {"type": "user", "message": {"content": [{
+            "type": "tool_result",
+            "tool_use_id": "tool-1",
+            "content": "stdout: ok",
+            "is_error": False,
+        }]}},
+        {"type": "assistant", "message": {
+            "content": [{"type": "text", "text": "finished"}],
+            "model": "claude-model",
+        }},
+    ])
+    conversation = next(iter(ClaudeCodeExtractor().extract(install)))
+    input_dir = tmp_path / "redacted"
+    input_dir.mkdir()
+    (input_dir / "claude_code.jsonl").write_text(json.dumps(conversation) + "\n")
+
+    messages_file = tmp_path / "messages.jsonl"
+    sharegpt_file = tmp_path / "sharegpt.jsonl"
+    export_messages(input_dir, messages_file, ExportConfig(metadata_key="test-key"))
+    export_sharegpt(input_dir, sharegpt_file, ExportConfig(metadata_key="test-key"))
+
+    messages_row = json.loads(messages_file.read_text())
+    sharegpt_rows = [json.loads(line) for line in sharegpt_file.read_text().splitlines()]
+    assert "stdout: ok" in messages_row["messages"][2]["content"]
+    assert "stdout: ok" in sharegpt_rows[1]["conversations"][0]["value"]
 
 
 def test_skips_current_claude_auxiliary_sidecars(tmp_path):

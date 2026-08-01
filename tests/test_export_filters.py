@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 
 from tracesmith.config import ExportConfig
-from tracesmith.export.filters import filter_reason
+from tracesmith.export.filters import dedup_key, filter_reason
 from tests.conftest import make_conversation, make_message
 
 
@@ -55,3 +55,19 @@ def test_tool_and_diff_filters_use_normalized_message_fields() -> None:
 def test_invalid_time_filter_is_rejected() -> None:
     with pytest.raises(ValueError, match="invalid --since"):
         filter_reason(rich_conversation(), ExportConfig(since="not-a-time"))
+
+
+def test_invalid_time_filter_is_rejected_before_other_filters() -> None:
+    with pytest.raises(ValueError, match="invalid --until"):
+        filter_reason(
+            rich_conversation(),
+            ExportConfig(include_sources=["codex"], until="not-a-time"),
+        )
+
+
+def test_no_session_dedup_key_is_source_namespaced() -> None:
+    messages = [make_message("user", "same"), make_message("assistant", "same")]
+    claude = make_conversation(source="claude_code", session_id=None, messages=messages)
+    codex = make_conversation(source="codex", session_id=None, messages=messages)
+
+    assert dedup_key(claude) != dedup_key(codex)

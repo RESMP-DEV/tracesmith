@@ -74,6 +74,26 @@ def extract_codex_session(session_file: Path) -> Conversation | None:
     token_usage: dict[str, int | float] = {}
     message_origins: dict[tuple[str, str], set[str]] = defaultdict(set)
     message_indexes: dict[tuple[str, str], int] = {}
+    seen_tool_calls: set[str] = set()
+    seen_tool_results: set[str] = set()
+    seen_diffs: set[str] = set()
+
+    def first_event(seen: set[str], payload: dict) -> bool:
+        identity = next(
+            (
+                payload.get(key)
+                for key in ("call_id", "id", "tool_use_id")
+                if payload.get(key) not in (None, "")
+            ),
+            None,
+        )
+        if identity is None:
+            return True
+        normalized = str(identity)
+        if normalized in seen:
+            return False
+        seen.add(normalized)
+        return True
 
     def append_message(
         role: str, content: object, timestamp: object, *, origin: str,
@@ -90,13 +110,18 @@ def extract_codex_session(session_file: Path) -> Conversation | None:
         if not text:
             return
         key = (role, text)
-        if message_origins[key] and origin not in message_origins[key]:
+        index = message_indexes.get(key)
+        if (
+            index is not None
+            and index == len(messages) - 1
+            and origin not in message_origins[key]
+        ):
             message_origins[key].add(origin)
-            existing = messages[message_indexes[key]]
+            existing = messages[index]
             if message_model and not existing.get("model"):
                 existing["model"] = message_model
             return
-        message_origins[key].add(origin)
+        message_origins[key] = {origin}
         message = {"role": role, "content": text, "timestamp": timestamp}
         if message_model:
             message["model"] = message_model
@@ -137,7 +162,8 @@ def extract_codex_session(session_file: Path) -> Conversation | None:
                         )
 
                     elif payload_type == 'tool_use':
-                        tool_call_count += 1
+                        if first_event(seen_tool_calls, payload):
+                            tool_call_count += 1
                         tool_events.append({
                             'type': 'tool_use',
                             'tool': payload.get('tool'),
@@ -146,7 +172,8 @@ def extract_codex_session(session_file: Path) -> Conversation | None:
                         })
 
                     elif payload_type == 'tool_result':
-                        tool_result_count += 1
+                        if first_event(seen_tool_results, payload):
+                            tool_result_count += 1
                         tool_events.append({
                             'type': 'tool_result',
                             'tool': payload.get('tool'),
@@ -155,7 +182,8 @@ def extract_codex_session(session_file: Path) -> Conversation | None:
                         })
 
                     elif payload_type == 'diff':
-                        diff_count += 1
+                        if first_event(seen_diffs, payload):
+                            diff_count += 1
                         tool_events.append({
                             'type': 'diff',
                             'file': payload.get('file'),
@@ -165,8 +193,12 @@ def extract_codex_session(session_file: Path) -> Conversation | None:
 
                     elif payload_type == 'patch_apply_end':
                         changes = payload.get('changes')
-                        if isinstance(changes, (dict, list)):
-                            diff_count += len(changes)
+                        if (
+                            isinstance(changes, (dict, list))
+                            and changes
+                            and first_event(seen_diffs, payload)
+                        ):
+                            diff_count += 1
 
                     elif payload_type == 'task_complete':
                         status = 'completed'
@@ -200,9 +232,11 @@ def extract_codex_session(session_file: Path) -> Conversation | None:
                             message_model=model if role == 'assistant' else None,
                         )
                     elif payload_type in {'function_call', 'custom_tool_call'}:
-                        tool_call_count += 1
+                        if first_event(seen_tool_calls, payload):
+                            tool_call_count += 1
                     elif payload_type in {'function_call_output', 'custom_tool_call_output'}:
-                        tool_result_count += 1
+                        if first_event(seen_tool_results, payload):
+                            tool_result_count += 1
 
             except json.JSONDecodeError:
                 continue

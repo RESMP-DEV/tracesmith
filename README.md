@@ -269,7 +269,8 @@ copy field values or personal trace content into the repository.
 Worked, redacted examples of both variants live in
 [`examples/`](examples/) — `sample_input.jsonl` (raw) plus the golden
 `messages_expected.jsonl` and `sharegpt_expected.jsonl` the pipeline produces
-from it.
+from it. Run `python examples/regenerate.py` to reproduce them with the fixed,
+public fixture key documented in [`examples/README.md`](examples/README.md).
 
 ### `MANIFEST.json`
 

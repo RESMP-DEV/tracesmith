@@ -31,9 +31,31 @@ def _timestamp(value: object) -> float | None:
     return parsed.timestamp()
 
 
-def filter_reason(conv: dict, config: ExportConfig) -> str | None:
+def time_bounds(config: ExportConfig) -> tuple[float | None, float | None]:
+    """Parse and validate configured time bounds once."""
+    bounds: list[float | None] = []
+    for name, raw in (("since", config.since), ("until", config.until)):
+        if not raw:
+            bounds.append(None)
+            continue
+        parsed = _timestamp(raw)
+        if parsed is None:
+            raise ValueError(f"invalid --{name} timestamp: {raw!r}")
+        bounds.append(parsed)
+    return bounds[0], bounds[1]
+
+
+def filter_reason(
+    conv: dict,
+    config: ExportConfig,
+    *,
+    metadata: dict | None = None,
+    bounds: tuple[float | None, float | None] | None = None,
+) -> str | None:
     """Return the first exclusion reason for a normalized conversation."""
-    metadata = build_metadata(conv, metadata_key=config.metadata_key)
+    since, until = bounds if bounds is not None else time_bounds(config)
+    if metadata is None:
+        metadata = build_metadata(conv, metadata_key=config.metadata_key)
     counts = metadata["counts"]
     source = metadata["source"]
 
@@ -58,16 +80,10 @@ def filter_reason(conv: dict, config: ExportConfig) -> str | None:
         return "status_not_included"
 
     created_at = _timestamp(conv.get("created_at"))
-    if config.since:
-        since = _timestamp(config.since)
-        if since is None:
-            raise ValueError(f"invalid --since timestamp: {config.since!r}")
+    if since is not None:
         if created_at is None or created_at < since:
             return "before_since"
-    if config.until:
-        until = _timestamp(config.until)
-        if until is None:
-            raise ValueError(f"invalid --until timestamp: {config.until!r}")
+    if until is not None:
         if created_at is None or created_at > until:
             return "after_until"
 
@@ -97,6 +113,6 @@ def dedup_key(conv: dict) -> str:
     if conv.get("session_id"):
         return f"sid:{source}:{conv['session_id']}"
     blob = json.dumps(
-        conv.get("messages", []), sort_keys=True, separators=(",", ":")
+        [source, conv.get("messages", [])], sort_keys=True, separators=(",", ":")
     ).encode()
     return "h:" + hashlib.sha256(blob).hexdigest()

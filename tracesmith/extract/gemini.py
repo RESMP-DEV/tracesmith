@@ -137,6 +137,7 @@ def extract_gemini_session(session_file: Path) -> Conversation | None:
                                 'tool_call_id': call.get('id'),
                                 'tool': call.get('name'),
                                 'status': call.get('status'),
+                                'output': call.get('result'),
                             })
                     if tool_calls:
                         normalized_msg['tool_calls'] = tool_calls

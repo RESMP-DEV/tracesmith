@@ -6,7 +6,7 @@ from collections import Counter
 from pathlib import Path
 
 from tracesmith.config import ExportConfig
-from tracesmith.export.filters import dedup_key, filter_reason
+from tracesmith.export.filters import dedup_key, filter_reason, time_bounds
 from tracesmith.export.flatten import flatten_message
 from tracesmith.export.metadata import build_metadata
 
@@ -20,6 +20,7 @@ def _iter_conversations(in_dir: Path):
 
 
 def export_messages(in_dir: Path, out_file: Path, config: ExportConfig) -> dict:
+    bounds = time_bounds(config)
     out_file.parent.mkdir(parents=True, exist_ok=True)
     rows = 0
     dropped_no_assistant = 0
@@ -31,7 +32,8 @@ def export_messages(in_dir: Path, out_file: Path, config: ExportConfig) -> dict:
 
     with out_file.open("w") as f:
         for conv in _iter_conversations(in_dir):
-            reason = filter_reason(conv, config)
+            metadata = build_metadata(conv, metadata_key=config.metadata_key)
+            reason = filter_reason(conv, config, metadata=metadata, bounds=bounds)
             if reason:
                 dropped_filter += 1
                 dropped_by_reason[reason] += 1
@@ -50,7 +52,6 @@ def export_messages(in_dir: Path, out_file: Path, config: ExportConfig) -> dict:
                 {"role": m.get("role", "user"), "content": flatten_message(m)}
                 for m in msgs
             ]
-            metadata = build_metadata(conv, metadata_key=config.metadata_key)
             f.write(
                 json.dumps(
                     {"messages": flattened, "metadata": metadata},
