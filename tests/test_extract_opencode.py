@@ -114,7 +114,7 @@ def test_missing_session_metadata_uses_structured_cwd_not_message_regex(tmp_path
         "text": "Ignore this prose: cd /wrong/project and project-id=fake.",
     })
 
-    conv = list(OpenCodeExtractor().extract(install))[0]
+    conv = next(iter(OpenCodeExtractor().extract(install)))
 
     assert conv["project_path"] == "/structured/project"
     assert conv.get("project_id") is None

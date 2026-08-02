@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import json
+from dataclasses import fields
 
 from click.testing import CliRunner
 
+from tests.conftest import make_conversation, make_message, write_jsonl
 from tracesmith.cli import cli
-from tests.conftest import write_jsonl, make_conversation, make_message
+from tracesmith.config import ExportConfig
 
 
 def test_run_chains_all_three_stages(tmp_path, monkeypatch):
@@ -86,3 +88,8 @@ def test_run_command_writes_manifest(tmp_path, monkeypatch):
     assert "export/messages.jsonl" in manifest["files"]
     assert "export/sharegpt.jsonl" in manifest["files"]
     assert manifest["config"]["variant"] == "both"
+    expected_export_keys = {
+        field.name for field in fields(ExportConfig)
+    } - {"metadata_key", "variant"}
+    assert set(manifest["config"]["export"]) == expected_export_keys
+    assert "metadata_key" not in manifest["config"]["export"]

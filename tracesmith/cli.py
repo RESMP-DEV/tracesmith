@@ -1,6 +1,7 @@
 """CLI entrypoint: tracesmith."""
 from __future__ import annotations
 
+from dataclasses import asdict
 from pathlib import Path
 
 import click
@@ -151,6 +152,7 @@ def publish_cmd(repo_id: str, in_dir: str, variant: str, private: bool) -> None:
 def stats_cmd(in_dir: str) -> None:
     """Report corpus metrics across the exported *.jsonl files."""
     import json as _json
+
     from tracesmith.stats import corpus_stats
     report = corpus_stats(Path(in_dir))
     click.echo(_json.dumps(report, indent=2))
@@ -227,15 +229,13 @@ def run_cmd(ctx, sources: str | None, root: str, out: str, variant: str,
         click.echo(f"export sharegpt: {export_summaries['sharegpt']['pairs']} pairs")
 
     # Stage 4: MANIFEST.json.
+    export_snapshot = asdict(export_config)
+    export_snapshot.pop("variant")
+    export_snapshot.pop("metadata_key")
     config_snapshot = {
-        "variant": variant,
+        "variant": export_config.variant,
         "redaction": redact_report["config"],
-        "export": {"min_turns": None, "max_turns": None,
-                   "min_assistant_chars": None, "include_sources": [],
-                   "drop_sources": [], "projects": [], "models": [],
-                   "statuses": [], "since": None, "until": None,
-                   "require_tools": False, "require_diffs": False,
-                   "dedup": False},
+        "export": export_snapshot,
     }
     manifest_path = write_manifest(
         out_path, extract_counts, redact_report, export_summaries, config_snapshot

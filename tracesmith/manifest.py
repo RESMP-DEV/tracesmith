@@ -23,10 +23,9 @@ def write_manifest(
     export_summaries: dict[str, dict],
     config_snapshot: dict[str, Any],
 ) -> Path:
-    # Per-source block carries raw extraction + redaction counts only.
-    # Export attribution is NOT per-source: the export pipeline does not thread
-    # source tags through to the emitted rows, so any per-source export count
-    # would be misleading. Global export counts live in `export_summary` below.
+    # Keep raw extraction and redaction counts in the per-source block. Export
+    # row attribution lives separately in `export_summary` so the two kinds of
+    # counts cannot be conflated.
     sources: dict[str, Any] = {}
     for src, n in extract_counts.items():
         sources[src] = {
