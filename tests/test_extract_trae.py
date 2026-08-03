@@ -1,8 +1,8 @@
 """Tests for the Trae extractor."""
+
 from __future__ import annotations
 
 import json
-import sqlite3
 from pathlib import Path
 
 from tracesmith.extract.trae import TraeExtractor
@@ -10,7 +10,7 @@ from tracesmith.extract.trae import TraeExtractor
 
 def write_jsonl(path: Path, events: list[dict]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w") as f:
+    with path.open("w", encoding="utf-8") as f:
         for ev in events:
             f.write(json.dumps(ev) + "\n")
 
@@ -19,10 +19,13 @@ def test_extract_basic_user_assistant_turns(tmp_path):
     # Trae stores JSONL under <install>/projects/<proj>/*.jsonl
     install = tmp_path / ".trae"
     session = install / "projects" / "myproj" / "session.jsonl"
-    write_jsonl(session, [
-        {"type": "user", "message": "hello", "timestamp": "t1"},
-        {"type": "assistant", "message": "hi there", "timestamp": "t2"},
-    ])
+    write_jsonl(
+        session,
+        [
+            {"type": "user", "message": "hello", "timestamp": "t1"},
+            {"type": "assistant", "message": "hi there", "timestamp": "t2"},
+        ],
+    )
 
     convs = list(TraeExtractor().extract(install))
 
@@ -31,20 +34,34 @@ def test_extract_basic_user_assistant_turns(tmp_path):
     assert conv["source"] == "trae"
     assert conv["source_file"] == str(session)
     assert len(conv["messages"]) == 2
-    assert conv["messages"][0] == {"role": "user", "content": "hello", "timestamp": "t1"}
-    assert conv["messages"][1] == {"role": "assistant", "content": "hi there", "timestamp": "t2"}
+    assert conv["messages"][0] == {
+        "role": "user",
+        "content": "hello",
+        "timestamp": "t1",
+    }
+    assert conv["messages"][1] == {
+        "role": "assistant",
+        "content": "hi there",
+        "timestamp": "t2",
+    }
 
 
 def test_extract_tool_use_and_diffs_attached(tmp_path):
     install = tmp_path / ".trae"
     session = install / "projects" / "p" / "s.jsonl"
-    write_jsonl(session, [
-        {"type": "user", "message": "do it"},
-        {"type": "assistant", "message": "ok",
-         "tool_use": {"tool": "edit", "input": {"path": "f.py"}},
-         "diffs": [{"file": "f.py", "diff": "-a\n+b"}],
-         "edits": [{"file": "g.py"}]},
-    ])
+    write_jsonl(
+        session,
+        [
+            {"type": "user", "message": "do it"},
+            {
+                "type": "assistant",
+                "message": "ok",
+                "tool_use": {"tool": "edit", "input": {"path": "f.py"}},
+                "diffs": [{"file": "f.py", "diff": "-a\n+b"}],
+                "edits": [{"file": "g.py"}],
+            },
+        ],
+    )
 
     convs = list(TraeExtractor().extract(install))
     asst = convs[0]["messages"][1]
