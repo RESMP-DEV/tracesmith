@@ -153,13 +153,17 @@ gitleaks fix → optional LLM residue → optional final gitleaks scan) and writ
 tracesmith export [--in ./output/redacted] [--out ./output/export]
                   [--variant messages|sharegpt|both]
                   [--min-turns N] [--max-turns N] [--min-assistant-chars N]
-                  [--drop-sources a,b] [--dedup]
+                  [--include-source GLOB]... [--drop-sources a,b]
+                  [--project GLOB]... [--model GLOB]... [--status STATUS]...
+                  [--since ISO_TIME] [--until ISO_TIME]
+                  [--require-tools] [--require-diffs] [--dedup]
 ```
 
 Flatten redacted conversations into DistillKit-ready JSONL (see *Output format*
 below). Quality filters drop conversations with no assistant turn, apply
-turn-count bounds, require a minimum assistant message length, drop whole
-sources, and optionally deduplicate.
+message-count bounds, require a minimum assistant message length, filter by
+normalized source/project/model/status/time metadata, require tool calls or
+diffs, and optionally deduplicate. Filter summaries include drop reasons.
 
 ### `tracesmith verify`
 
@@ -216,7 +220,13 @@ flattened into a single string `content`, and the original `role` is preserved.
 {"messages": [
   {"role": "user", "content": "add a greeting function to the project"},
   {"role": "assistant", "content": "I'll create it.\n\n<tool_use name=\"write_file\">\n{...}\n</tool_use>"}
-]}
+], "metadata": {
+  "schema_version": "1.0",
+  "trace_id": "ts_...",
+  "source": "claude_code",
+  "models": ["claude-sonnet-4-5"],
+  "counts": {"messages": 2, "tool_calls": 1, "tool_results": 0, "diffs": 0}
+}}
 ```
 
 ### `sharegpt` variant — `export/sharegpt.jsonl`
@@ -229,20 +239,45 @@ first pair. Uses the classic `from`/`value` shape:
 {"conversations": [
   {"from": "human", "value": "add a greeting function to the project"},
   {"from": "gpt",   "value": "I'll create it.\n\n<tool_use name=\"write_file\">\n{...}\n</tool_use>"}
-]}
+], "metadata": {
+  "schema_version": "1.0",
+  "trace_id": "ts_...",
+  "source": "claude_code",
+  "pair": {"index": 0, "count": 1}
+}}
 ```
+
+### Metadata contract
+
+Provider adapters normalize structured source fields into the `Conversation`
+and `Message` types before export. The metadata exporter reads only that
+declared internal contract. It does not search message text, infer a project
+from shell commands, or probe provider-specific aliases.
+
+Trace and project IDs are keyed HMAC pseudonyms. Set
+`TRACESMITH_METADATA_KEY` when identities must remain stable across separate
+runs. Real timestamps are reduced to UTC day precision in exported metadata;
+filters still use the normalized pre-export timestamp. Raw session IDs, paths,
+titles, message IDs, tool payloads, and source files are not copied into public
+metadata.
+
+The adapters and fixtures were checked against a key-only inventory of recent
+local Claude Code, Codex, Gemini CLI, and OpenCode records. The inventory
+recorded paths, types, discriminator values, and frequency only; it did not
+copy field values or personal trace content into the repository.
 
 Worked, redacted examples of both variants live in
 [`examples/`](examples/) — `sample_input.jsonl` (raw) plus the golden
 `messages_expected.jsonl` and `sharegpt_expected.jsonl` the pipeline produces
-from it.
+from it. Run `python examples/regenerate.py` to reproduce them with the fixed,
+public fixture key documented in [`examples/README.md`](examples/README.md).
 
 ### `MANIFEST.json`
 
 Provenance for reproducibility: a UTC `created_at`, the `tool_version`, the
-`config` snapshot used, a per-`sources` block (raw record counts, redaction
-counts, exported message counts), and a `files` block with `sha256`/`bytes`/
-`rows` for each export artifact. Generated automatically by `tracesmith run`.
+`metadata_schema_version`, the `config` snapshot used, per-source raw and
+export counts, and a `files` block with `sha256`/`bytes`/`rows` for each export
+artifact. Generated automatically by `tracesmith run`.
 
 ---
 

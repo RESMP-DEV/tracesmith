@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from tracesmith import __version__
+from tracesmith.export.metadata import SCHEMA_VERSION
 
 
 def file_hashes(path: Path) -> dict[str, Any]:
@@ -22,10 +23,9 @@ def write_manifest(
     export_summaries: dict[str, dict],
     config_snapshot: dict[str, Any],
 ) -> Path:
-    # Per-source block carries raw extraction + redaction counts only.
-    # Export attribution is NOT per-source: the export pipeline does not thread
-    # source tags through to the emitted rows, so any per-source export count
-    # would be misleading. Global export counts live in `export_summary` below.
+    # Keep raw extraction and redaction counts in the per-source block. Export
+    # row attribution lives separately in `export_summary` so the two kinds of
+    # counts cannot be conflated.
     sources: dict[str, Any] = {}
     for src, n in extract_counts.items():
         sources[src] = {
@@ -38,17 +38,28 @@ def write_manifest(
         p = export_dir / name
         if p.exists():
             files[f"export/{name}"] = file_hashes(p)
+    export_summary = {
+        "messages_rows": export_summaries.get("messages", {}).get("rows", 0),
+        "messages_dropped_no_assistant": export_summaries.get("messages", {}).get("dropped_no_assistant", 0),
+        "messages_dropped_by_reason": export_summaries.get("messages", {}).get("dropped_by_reason", {}),
+        "sharegpt_pairs": export_summaries.get("sharegpt", {}).get("pairs", 0),
+        "sharegpt_dropped_trailing_user": export_summaries.get("sharegpt", {}).get("dropped_trailing_user", 0),
+        "sharegpt_dropped_by_reason": export_summaries.get("sharegpt", {}).get("dropped_by_reason", {}),
+    }
+    messages_by_source = export_summaries.get("messages", {}).get("by_source", {})
+    sharegpt_by_source = export_summaries.get("sharegpt", {}).get("by_source", {})
+    if messages_by_source:
+        export_summary["messages_by_source"] = messages_by_source
+    if sharegpt_by_source:
+        export_summary["sharegpt_pairs_by_source"] = sharegpt_by_source
+
     manifest = {
         "created_at": datetime.now(timezone.utc).isoformat(),
         "tool_version": __version__,
+        "metadata_schema_version": SCHEMA_VERSION,
         "config": config_snapshot,
         "sources": sources,
-        "export_summary": {
-            "messages_rows": export_summaries.get("messages", {}).get("rows", 0),
-            "messages_dropped_no_assistant": export_summaries.get("messages", {}).get("dropped_no_assistant", 0),
-            "sharegpt_pairs": export_summaries.get("sharegpt", {}).get("pairs", 0),
-            "sharegpt_dropped_trailing_user": export_summaries.get("sharegpt", {}).get("dropped_trailing_user", 0),
-        },
+        "export_summary": export_summary,
         "files": files,
     }
     path = out_root / "MANIFEST.json"

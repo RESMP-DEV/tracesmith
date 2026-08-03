@@ -1,6 +1,7 @@
 """CLI entrypoint: tracesmith."""
 from __future__ import annotations
 
+from dataclasses import asdict
 from pathlib import Path
 
 import click
@@ -75,11 +76,26 @@ def redact_cmd(in_dir: str, out_dir: str, allow_public_urls: bool,
 @click.option("--min-turns", type=int, default=None)
 @click.option("--max-turns", type=int, default=None)
 @click.option("--min-assistant-chars", type=int, default=None)
+@click.option("--include-source", "include_sources", multiple=True,
+              help="Include source names; shell globs are accepted.")
 @click.option("--drop-sources", default=None, help="Comma-separated source names to drop")
+@click.option("--project", "projects", multiple=True,
+              help="Include normalized project IDs or paths; shell globs are accepted.")
+@click.option("--model", "models", multiple=True,
+              help="Include model names; shell globs are accepted.")
+@click.option("--status", "statuses", multiple=True,
+              help="Include explicit normalized statuses.")
+@click.option("--since", default=None, help="Include traces created at or after this ISO timestamp.")
+@click.option("--until", default=None, help="Include traces created at or before this ISO timestamp.")
+@click.option("--require-tools", is_flag=True)
+@click.option("--require-diffs", is_flag=True)
 @click.option("--dedup", is_flag=True)
 def export_cmd(in_dir: str, out_dir: str, variant: str, min_turns: int | None,
                max_turns: int | None, min_assistant_chars: int | None,
-               drop_sources: str | None, dedup: bool) -> None:
+               include_sources: tuple[str, ...], drop_sources: str | None,
+               projects: tuple[str, ...], models: tuple[str, ...],
+               statuses: tuple[str, ...], since: str | None, until: str | None,
+               require_tools: bool, require_diffs: bool, dedup: bool) -> None:
     """Export redacted conversations to DistillKit-ready formats."""
     from tracesmith.config import ExportConfig
     from tracesmith.export.messages import export_messages
@@ -87,7 +103,12 @@ def export_cmd(in_dir: str, out_dir: str, variant: str, min_turns: int | None,
     config = ExportConfig(
         variant=variant, min_turns=min_turns, max_turns=max_turns,
         min_assistant_chars=min_assistant_chars,
-        drop_sources=drop_sources.split(",") if drop_sources else [],
+        include_sources=list(include_sources),
+        drop_sources=[item.strip() for item in drop_sources.split(",") if item.strip()]
+        if drop_sources else [],
+        projects=list(projects), models=list(models), statuses=list(statuses),
+        since=since, until=until, require_tools=require_tools,
+        require_diffs=require_diffs,
         dedup=dedup,
     )
     if variant in ("messages", "both"):
@@ -131,6 +152,7 @@ def publish_cmd(repo_id: str, in_dir: str, variant: str, private: bool) -> None:
 def stats_cmd(in_dir: str) -> None:
     """Report corpus metrics across the exported *.jsonl files."""
     import json as _json
+
     from tracesmith.stats import corpus_stats
     report = corpus_stats(Path(in_dir))
     click.echo(_json.dumps(report, indent=2))
@@ -207,11 +229,13 @@ def run_cmd(ctx, sources: str | None, root: str, out: str, variant: str,
         click.echo(f"export sharegpt: {export_summaries['sharegpt']['pairs']} pairs")
 
     # Stage 4: MANIFEST.json.
+    export_snapshot = asdict(export_config)
+    export_snapshot.pop("variant")
+    export_snapshot.pop("metadata_key")
     config_snapshot = {
-        "variant": variant,
+        "variant": export_config.variant,
         "redaction": redact_report["config"],
-        "export": {"min_turns": None, "max_turns": None,
-                   "min_assistant_chars": None, "drop_sources": [], "dedup": False},
+        "export": export_snapshot,
     }
     manifest_path = write_manifest(
         out_path, extract_counts, redact_report, export_summaries, config_snapshot

@@ -63,6 +63,60 @@ def test_extract_attaches_thoughts_and_tokens(tmp_path):
     assert asst["tokens"] == {"input": 10, "output": 5}
 
 
+def test_extracts_current_gemini_tool_shape_observed_in_local_sessions(tmp_path):
+    install = tmp_path / ".gemini"
+    session = install / "tmp" / "hash" / "chats" / "session-current.json"
+    write_session(session, {
+        "sessionId": "current",
+        "projectHash": "hash",
+        "startTime": "2026-07-10T10:00:00Z",
+        "lastUpdated": "2026-07-10T10:00:02Z",
+        "messages": [
+            {"id": "u1", "type": "user", "content": "run", "timestamp": "t1"},
+            {
+                "id": "a1",
+                "type": "gemini",
+                "content": "done",
+                "timestamp": "t2",
+                "model": "gemini-model",
+                "tokens": {
+                    "input": 10, "output": 5, "cached": 3,
+                    "thoughts": 2, "tool": 1, "total": 21,
+                },
+                "toolCalls": [{
+                    "id": "call-1",
+                    "name": "run_shell_command",
+                    "args": {"command": "true"},
+                    "status": "success",
+                    "result": [{"functionResponse": {"id": "call-1"}}],
+                }],
+            },
+        ],
+    })
+
+    conv = next(iter(GeminiExtractor().extract(install)))
+
+    assert conv["created_at"] == "2026-07-10T10:00:00Z"
+    assert conv["updated_at"] == "2026-07-10T10:00:02Z"
+    assert conv["token_usage"] == {
+        "input": 10,
+        "output": 5,
+        "cached_input": 3,
+        "reasoning": 2,
+        "tool": 1,
+        "total": 21,
+    }
+    assistant = conv["messages"][1]
+    assert assistant["id"] == "a1"
+    assert assistant["tool_calls"][0]["name"] == "run_shell_command"
+    assert assistant["tool_results"] == [{
+        "tool_call_id": "call-1",
+        "tool": "run_shell_command",
+        "status": "success",
+        "output": [{"functionResponse": {"id": "call-1"}}],
+    }]
+
+
 def test_extract_empty_install(tmp_path):
     install = tmp_path / ".gemini"
     install.mkdir(parents=True)

@@ -1,15 +1,19 @@
 """Tests for the Claude Code extractor."""
+
 from __future__ import annotations
 
 import json
 from pathlib import Path
 
+from tracesmith.config import ExportConfig
+from tracesmith.export.messages import export_messages
+from tracesmith.export.sharegpt import export_sharegpt
 from tracesmith.extract.claude_code import ClaudeCodeExtractor
 
 
 def write_session_jsonl(path: Path, events: list[dict]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w") as f:
+    with path.open("w", encoding="utf-8") as f:
         for ev in events:
             f.write(json.dumps(ev) + "\n")
 
@@ -19,13 +23,25 @@ def test_extract_basic_user_assistant_turns(tmp_path):
     install = tmp_path / ".claude"
     proj = install / "projects" / "myproj"
     session = proj / "abc123.jsonl"
-    write_session_jsonl(session, [
-        {"type": "user", "timestamp": "t1", "cwd": "/tmp/proj",
-         "message": {"content": "hello"}},
-        {"type": "assistant", "timestamp": "t2",
-         "message": {"content": [{"type": "text", "text": "hi there"}],
-                     "model": "claude-sonnet-4-5"}},
-    ])
+    write_session_jsonl(
+        session,
+        [
+            {
+                "type": "user",
+                "timestamp": "t1",
+                "cwd": "/tmp/proj",
+                "message": {"content": "hello"},
+            },
+            {
+                "type": "assistant",
+                "timestamp": "t2",
+                "message": {
+                    "content": [{"type": "text", "text": "hi there"}],
+                    "model": "claude-sonnet-4-5",
+                },
+            },
+        ],
+    )
 
     ext = ClaudeCodeExtractor()
     convs = list(ext.extract(install))
@@ -36,7 +52,11 @@ def test_extract_basic_user_assistant_turns(tmp_path):
     assert conv["session_id"] == "abc123"
     assert conv["project_path"] == "/tmp/proj"
     assert len(conv["messages"]) == 2
-    assert conv["messages"][0] == {"role": "user", "content": "hello", "timestamp": "t1"}
+    assert conv["messages"][0] == {
+        "role": "user",
+        "content": "hello",
+        "timestamp": "t1",
+    }
     assert conv["messages"][1]["role"] == "assistant"
     assert conv["messages"][1]["content"] == "hi there"
     assert conv["messages"][1]["model"] == "claude-sonnet-4-5"
@@ -46,15 +66,23 @@ def test_extract_tool_use_and_tool_result_attached(tmp_path):
     install = tmp_path / ".claude"
     proj = install / "projects" / "p"
     session = proj / "s.jsonl"
-    write_session_jsonl(session, [
-        {"type": "user", "message": {"content": "do the thing"}},
-        {"type": "assistant",
-         "message": {"content": [
-             {"type": "text", "text": "ok"},
-             {"type": "tool_use", "name": "edit", "input": {"path": "f.py"}},
-         ], "model": "m"}},
-        {"type": "tool_result", "toolResult": {"type": "text", "text": "done"}},
-    ])
+    write_session_jsonl(
+        session,
+        [
+            {"type": "user", "message": {"content": "do the thing"}},
+            {
+                "type": "assistant",
+                "message": {
+                    "content": [
+                        {"type": "text", "text": "ok"},
+                        {"type": "tool_use", "name": "edit", "input": {"path": "f.py"}},
+                    ],
+                    "model": "m",
+                },
+            },
+            {"type": "tool_result", "toolResult": {"type": "text", "text": "done"}},
+        ],
+    )
 
     convs = list(ClaudeCodeExtractor().extract(install))
     asst = convs[0]["messages"][1]
@@ -62,6 +90,262 @@ def test_extract_tool_use_and_tool_result_attached(tmp_path):
     assert asst["content"] == "ok"
     assert asst["tool_uses"][0]["name"] == "edit"
     assert asst["tool_results"][0]["text"] == "done"
+
+
+def test_extracts_current_claude_shape_observed_in_local_sessions(tmp_path):
+    install = tmp_path / ".claude"
+    session = install / "projects" / "p" / "current.jsonl"
+    write_session_jsonl(
+        session,
+        [
+            {
+                "type": "user",
+                "uuid": "user-1",
+                "parentUuid": None,
+                "sessionId": "current",
+                "cwd": "/work/project",
+                "version": "2.1.0",
+                "timestamp": "2026-07-10T10:00:00Z",
+                "message": {"role": "user", "content": "run it"},
+            },
+            {
+                "type": "assistant",
+                "uuid": "assistant-record-1",
+                "parentUuid": "user-1",
+                "sessionId": "current",
+                "cwd": "/work/project",
+                "version": "2.1.0",
+                "timestamp": "2026-07-10T10:00:01Z",
+                "message": {
+                    "id": "assistant-message-1",
+                    "role": "assistant",
+                    "model": "claude-model",
+                    "content": [
+                        {"type": "text", "text": "done"},
+                        {
+                            "type": "tool_use",
+                            "id": "tool-1",
+                            "name": "Bash",
+                            "input": {},
+                        },
+                    ],
+                    "usage": {
+                        "input_tokens": 10,
+                        "output_tokens": 5,
+                        "cache_read_input_tokens": 3,
+                        "cache_creation_input_tokens": 2,
+                    },
+                    "stop_reason": "tool_use",
+                },
+            },
+            {
+                "type": "user",
+                "uuid": "user-2",
+                "parentUuid": "assistant-record-1",
+                "sessionId": "current",
+                "cwd": "/work/project",
+                "version": "2.1.0",
+                "timestamp": "2026-07-10T10:00:02Z",
+                "message": {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "tool_result",
+                            "tool_use_id": "tool-1",
+                            "content": "ok",
+                            "is_error": False,
+                        }
+                    ],
+                },
+            },
+        ],
+    )
+
+    conv = next(iter(ClaudeCodeExtractor().extract(install)))
+
+    assert conv["created_at"] == "2026-07-10T10:00:00Z"
+    assert conv["updated_at"] == "2026-07-10T10:00:02Z"
+    assert conv["version"] == "2.1.0"
+    assert conv["token_usage"] == {
+        "input": 10,
+        "output": 5,
+        "cached_input": 3,
+        "cache_write": 2,
+    }
+    assert conv["messages"][1]["id"] == "assistant-message-1"
+    assert conv["messages"][1]["parent_id"] == "user-1"
+    assert conv["messages"][2]["tool_results"] == [
+        {
+            "tool_call_id": "tool-1",
+            "status": "completed",
+            "output": "ok",
+        }
+    ]
+
+
+def test_counts_repeated_claude_usage_once_per_message_id(tmp_path):
+    install = tmp_path / ".claude"
+    session = install / "projects" / "p" / "usage.jsonl"
+    write_session_jsonl(
+        session,
+        [
+            {"type": "user", "message": {"content": "go"}},
+            {
+                "type": "assistant",
+                "message": {
+                    "id": "message-1",
+                    "content": [{"type": "text", "text": "part one"}],
+                    "model": "claude-model",
+                    "usage": {"input_tokens": 10, "output_tokens": 3},
+                },
+            },
+            {
+                "type": "assistant",
+                "message": {
+                    "id": "message-1",
+                    "content": [{"type": "text", "text": "part two"}],
+                    "model": "claude-model",
+                    "usage": {"input_tokens": 10, "output_tokens": 5},
+                },
+            },
+            {
+                "type": "assistant",
+                "message": {
+                    "content": [{"type": "text", "text": "anonymous"}],
+                    "model": "claude-model",
+                    "usage": {"input_tokens": 2, "output_tokens": 1},
+                },
+            },
+        ],
+    )
+
+    conv = next(iter(ClaudeCodeExtractor().extract(install)))
+
+    assert conv["token_usage"] == {"input": 12, "output": 6}
+
+
+def test_wrapped_tool_result_survives_both_exports(tmp_path):
+    install = tmp_path / ".claude"
+    session = install / "projects" / "p" / "tools.jsonl"
+    write_session_jsonl(
+        session,
+        [
+            {"type": "user", "message": {"content": "run it"}},
+            {
+                "type": "assistant",
+                "message": {
+                    "content": [
+                        {
+                            "type": "tool_use",
+                            "id": "tool-1",
+                            "name": "Bash",
+                            "input": {},
+                        }
+                    ],
+                    "model": "claude-model",
+                },
+            },
+            {
+                "type": "user",
+                "message": {
+                    "content": [
+                        {
+                            "type": "tool_result",
+                            "tool_use_id": "tool-1",
+                            "content": "stdout: ok",
+                            "is_error": False,
+                        }
+                    ]
+                },
+            },
+            {
+                "type": "assistant",
+                "message": {
+                    "content": [{"type": "text", "text": "finished"}],
+                    "model": "claude-model",
+                },
+            },
+        ],
+    )
+    conversation = next(iter(ClaudeCodeExtractor().extract(install)))
+    input_dir = tmp_path / "redacted"
+    input_dir.mkdir()
+    (input_dir / "claude_code.jsonl").write_text(json.dumps(conversation) + "\n")
+
+    messages_file = tmp_path / "messages.jsonl"
+    sharegpt_file = tmp_path / "sharegpt.jsonl"
+    export_messages(input_dir, messages_file, ExportConfig(metadata_key="test-key"))
+    export_sharegpt(input_dir, sharegpt_file, ExportConfig(metadata_key="test-key"))
+
+    messages_row = json.loads(messages_file.read_text())
+    sharegpt_rows = [
+        json.loads(line) for line in sharegpt_file.read_text().splitlines()
+    ]
+    assert "stdout: ok" in messages_row["messages"][2]["content"]
+    assert "stdout: ok" in sharegpt_rows[1]["conversations"][0]["value"]
+
+
+def test_skips_current_claude_auxiliary_sidecars(tmp_path):
+    install = tmp_path / ".claude"
+    project = install / "projects" / "p"
+    write_session_jsonl(
+        project / "attachment.jsonl",
+        [
+            {"type": "attachment", "attachment": {}},
+            {"type": "queue-operation", "operation": "enqueue"},
+            {"type": "user", "message": {"content": "synthetic request"}},
+            {
+                "type": "assistant",
+                "message": {
+                    "model": "<synthetic>",
+                    "content": [{"type": "text", "text": "synthetic response"}],
+                },
+            },
+            {"type": "last-prompt", "lastPrompt": "synthetic request"},
+        ],
+    )
+    write_session_jsonl(
+        project / "title.jsonl",
+        [
+            {"type": "attachment", "attachment": {}},
+            {"type": "queue-operation", "operation": "enqueue"},
+            {"type": "user", "message": {"content": "title request"}},
+            {
+                "type": "assistant",
+                "message": {
+                    "model": "claude-fable-5",
+                    "content": [{"type": "text", "text": "title"}],
+                },
+            },
+            {"type": "last-prompt", "lastPrompt": "title request"},
+            {"type": "ai-title", "title": "title"},
+        ],
+    )
+
+    assert list(ClaudeCodeExtractor().extract(install)) == []
+
+
+def test_keeps_real_conversation_that_contains_ai_title_event(tmp_path):
+    install = tmp_path / ".claude"
+    session = install / "projects" / "p" / "real.jsonl"
+    write_session_jsonl(
+        session,
+        [
+            {"type": "user", "message": {"content": "real request"}},
+            {
+                "type": "assistant",
+                "message": {
+                    "model": "claude-fable-5",
+                    "content": [{"type": "text", "text": "real response"}],
+                },
+            },
+            {"type": "ai-title", "title": "generated title"},
+        ],
+    )
+
+    conversations = list(ClaudeCodeExtractor().extract(install))
+    assert len(conversations) == 1
+    assert conversations[0]["messages"][1]["content"] == "real response"
 
 
 def test_extract_skips_empty_session(tmp_path):

@@ -2,11 +2,13 @@
 from __future__ import annotations
 
 import json
+from collections import Counter
 from pathlib import Path
 
 from tracesmith.config import ExportConfig
+from tracesmith.export.filters import dedup_key, filter_reason, time_bounds
 from tracesmith.export.flatten import flatten_message
-from tracesmith.export.filters import passes, dedup_key
+from tracesmith.export.metadata import build_metadata
 
 
 def _iter_conversations(in_dir: Path):
@@ -18,17 +20,23 @@ def _iter_conversations(in_dir: Path):
 
 
 def export_messages(in_dir: Path, out_file: Path, config: ExportConfig) -> dict:
+    bounds = time_bounds(config)
     out_file.parent.mkdir(parents=True, exist_ok=True)
     rows = 0
     dropped_no_assistant = 0
     dropped_filter = 0
     dropped_dedup = 0
+    dropped_by_reason: Counter[str] = Counter()
+    rows_by_source: Counter[str] = Counter()
     seen: set[str] = set()
 
     with out_file.open("w") as f:
         for conv in _iter_conversations(in_dir):
-            if not passes(conv, config):
+            metadata = build_metadata(conv, metadata_key=config.metadata_key)
+            reason = filter_reason(conv, config, metadata=metadata, bounds=bounds)
+            if reason:
                 dropped_filter += 1
+                dropped_by_reason[reason] += 1
                 continue
             if config.dedup:
                 k = dedup_key(conv)
@@ -44,12 +52,21 @@ def export_messages(in_dir: Path, out_file: Path, config: ExportConfig) -> dict:
                 {"role": m.get("role", "user"), "content": flatten_message(m)}
                 for m in msgs
             ]
-            f.write(json.dumps({"messages": flattened}, ensure_ascii=False) + "\n")
+            f.write(
+                json.dumps(
+                    {"messages": flattened, "metadata": metadata},
+                    ensure_ascii=False,
+                )
+                + "\n"
+            )
             rows += 1
+            rows_by_source[metadata["source"]] += 1
 
     return {
         "rows": rows,
         "dropped_no_assistant": dropped_no_assistant,
         "dropped_filter": dropped_filter,
         "dropped_dedup": dropped_dedup,
+        "dropped_by_reason": dict(dropped_by_reason),
+        "by_source": dict(rows_by_source),
     }

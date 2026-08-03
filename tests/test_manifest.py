@@ -11,12 +11,16 @@ from tracesmith.manifest import file_hashes, write_manifest
 def _seed_export(out_root: Path, messages_rows: int, sharegpt_rows: int) -> None:
     export_dir = out_root / "export"
     export_dir.mkdir(parents=True, exist_ok=True)
-    with (export_dir / "messages.jsonl").open("w") as f:
+    with (export_dir / "messages.jsonl").open("w", encoding="utf-8") as f:
         for _ in range(messages_rows):
-            f.write(json.dumps({"messages": [{"role": "user", "content": "hi"}]}) + "\n")
-    with (export_dir / "sharegpt.jsonl").open("w") as f:
+            f.write(
+                json.dumps({"messages": [{"role": "user", "content": "hi"}]}) + "\n"
+            )
+    with (export_dir / "sharegpt.jsonl").open("w", encoding="utf-8") as f:
         for _ in range(sharegpt_rows):
-            f.write(json.dumps({"conversations": [{"from": "human", "value": "hi"}]}) + "\n")
+            f.write(
+                json.dumps({"conversations": [{"from": "human", "value": "hi"}]}) + "\n"
+            )
 
 
 def test_file_hashes_sha256_bytes_rows(tmp_path):
@@ -43,13 +47,27 @@ def test_write_manifest_roundtrip(tmp_path):
         "config": {"allow_public_urls": False},
     }
     export_summaries = {
-        "messages": {"rows": 3, "dropped_no_assistant": 1, "dropped_filter": 0, "dropped_dedup": 0},
-        "sharegpt": {"pairs": 2, "dropped_no_assistant": 0, "dropped_trailing_user": 1,
-                     "dropped_filter": 0, "dropped_dedup": 0},
+        "messages": {
+            "rows": 3,
+            "dropped_no_assistant": 1,
+            "dropped_filter": 2,
+            "dropped_dedup": 0,
+            "dropped_by_reason": {"source_not_included": 2},
+        },
+        "sharegpt": {
+            "pairs": 2,
+            "dropped_no_assistant": 0,
+            "dropped_trailing_user": 1,
+            "dropped_filter": 1,
+            "dropped_dedup": 0,
+            "dropped_by_reason": {"before_since": 1},
+        },
     }
     config_snapshot = {"variant": "both", "allow_public_urls": False}
 
-    path = write_manifest(out_root, extract_counts, redact_report, export_summaries, config_snapshot)
+    path = write_manifest(
+        out_root, extract_counts, redact_report, export_summaries, config_snapshot
+    )
 
     assert path == out_root / "MANIFEST.json"
     assert path.exists()
@@ -57,7 +75,8 @@ def test_write_manifest_roundtrip(tmp_path):
 
     # Top-level provenance fields.
     assert manifest["tool_version"] == __version__
-    assert "created_at" in manifest and manifest["created_at"]
+    assert manifest["metadata_schema_version"] == "1.0"
+    assert manifest.get("created_at")
     assert manifest["config"] == config_snapshot
 
     # Per-source block: raw + redaction counts only. The buggy per-source
@@ -81,8 +100,10 @@ def test_write_manifest_roundtrip(tmp_path):
     assert manifest["export_summary"] == {
         "messages_rows": 3,
         "messages_dropped_no_assistant": 1,
+        "messages_dropped_by_reason": {"source_not_included": 2},
         "sharegpt_pairs": 2,
         "sharegpt_dropped_trailing_user": 1,
+        "sharegpt_dropped_by_reason": {"before_since": 1},
     }
 
     # Files block hashes both export variants and matches their byte/row counts.
@@ -90,9 +111,12 @@ def test_write_manifest_roundtrip(tmp_path):
     assert set(files.keys()) == {"export/messages.jsonl", "export/sharegpt.jsonl"}
     assert files["export/messages.jsonl"]["rows"] == 3
     assert files["export/sharegpt.jsonl"]["rows"] == 2
-    assert files["export/messages.jsonl"]["sha256"] == hashlib.sha256(
-        (out_root / "export" / "messages.jsonl").read_bytes()
-    ).hexdigest()
+    assert (
+        files["export/messages.jsonl"]["sha256"]
+        == hashlib.sha256(
+            (out_root / "export" / "messages.jsonl").read_bytes()
+        ).hexdigest()
+    )
 
 
 def test_write_manifest_handles_missing_export_files(tmp_path):
@@ -117,8 +141,10 @@ def test_write_manifest_handles_missing_export_files(tmp_path):
     assert manifest["export_summary"] == {
         "messages_rows": 0,
         "messages_dropped_no_assistant": 0,
+        "messages_dropped_by_reason": {},
         "sharegpt_pairs": 0,
         "sharegpt_dropped_trailing_user": 0,
+        "sharegpt_dropped_by_reason": {},
     }
 
 

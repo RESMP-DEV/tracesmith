@@ -1,4 +1,5 @@
 """Synthetic trace factories reused across all test suites."""
+
 from __future__ import annotations
 
 import json
@@ -6,7 +7,6 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-
 
 # --- Secrets / PII canaries (the kinds the redactor must catch) ---
 CANARY_OPENAI_KEY = "sk-proj-abcdefghijklmnopqrstuvwxyz0123456789ABCD"
@@ -45,7 +45,7 @@ def make_conversation(
 
 def write_jsonl(path: Path, records: list[dict[str, Any]]) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w") as f:
+    with path.open("w", encoding="utf-8") as f:
         for rec in records:
             f.write(json.dumps(rec, ensure_ascii=False) + "\n")
     return path
@@ -75,4 +75,6 @@ def canary_conversation() -> dict[str, Any]:
 
 @pytest.fixture
 def canary_jsonl(tmp_path, canary_conversation) -> Path:
-    return write_jsonl(tmp_path / "raw_extracted" / "claude_code.jsonl", [canary_conversation])
+    return write_jsonl(
+        tmp_path / "raw_extracted" / "claude_code.jsonl", [canary_conversation]
+    )
