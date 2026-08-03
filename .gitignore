@@ -9,3 +9,6 @@ redacted-agent-traces/
 *.jsonl
 !tests/**/*.jsonl
 !examples/**/*.jsonl
+
+# Local semantic-search index
+.sindexer/
