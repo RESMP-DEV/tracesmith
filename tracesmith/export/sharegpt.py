@@ -70,8 +70,12 @@ def export_sharegpt(in_dir: Path, out_file: Path, config: ExportConfig) -> dict:
                     continue
                 seen.add(k)
             msgs = conv.get("messages", [])
-            system_msgs = [m for m in msgs if m.get("role") == "system"]
-            non_system = [m for m in msgs if m.get("role") != "system"]
+            # System and developer messages are conditioning, not turns: they
+            # carry no user instruction and get no reply. Codex injects its
+            # Memory block as a developer-role message; surface both through
+            # the ShareGPT system channel ahead of the first pair.
+            system_msgs = [m for m in msgs if m.get("role") in {"system", "developer"}]
+            non_system = [m for m in msgs if m.get("role") not in {"system", "developer"}]
             pairs = list(_pairs(non_system))
             # A trailing user without a following assistant is an orphan: it is
             # silently dropped by `_pairs`. Detect independently so it is counted

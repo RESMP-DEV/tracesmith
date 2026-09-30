@@ -224,7 +224,9 @@ def extract_codex_session(session_file: Path) -> Conversation | None:
                 elif event_type == 'response_item':
                     payload = obj.get('payload', {})
                     payload_type = payload.get('type')
-                    if payload_type == 'message' and payload.get('role') in {'user', 'assistant'}:
+                    if payload_type == 'message' and payload.get('role') in {
+                        'user', 'assistant', 'developer',
+                    }:
                         role = payload['role']
                         append_message(
                             role, payload.get('content'), obj.get('timestamp'),

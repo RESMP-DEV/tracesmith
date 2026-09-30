@@ -65,3 +65,26 @@ def test_system_prepended_to_first_pair_only(tmp_path):
     assert rows[0]["conversations"][1] == {"from": "human", "value": "q1"}
     # Second pair has NO system
     assert all(c["from"] != "system" for c in rows[1]["conversations"])
+
+
+def test_developer_message_routes_through_system_channel(tmp_path):
+    in_dir = tmp_path / "redacted"
+    write_jsonl(in_dir / "x.jsonl", [
+        make_conversation(messages=[
+            make_message("developer", "## Memory\nUse memory files proactively."),
+            make_message("user", "# AGENTS.md instructions\n..."),
+            make_message("user", "q1"), make_message("assistant", "a1"),
+        ]),
+    ])
+    out_file = tmp_path / "out" / "sharegpt.jsonl"
+    summary = export_sharegpt(in_dir, out_file, ExportConfig(variant="sharegpt"))
+    rows = [json.loads(line) for line in out_file.read_text().strip().split("\n")]
+    assert summary["pairs"] == 1
+    # The developer Memory block rides the system channel ahead of the first
+    # human turn. The AGENTS.md block is a user-role message, so it shadows
+    # under the real prompt in pair formation (same as system prepending).
+    assert [c["from"] for c in rows[0]["conversations"]] == [
+        "system", "human", "gpt",
+    ]
+    assert rows[0]["conversations"][0]["value"].startswith("## Memory")
+    assert rows[0]["conversations"][1]["value"] == "q1"

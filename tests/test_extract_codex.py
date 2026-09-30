@@ -409,3 +409,54 @@ def test_find_installations_discovers_codex(tmp_path, monkeypatch):
     (tmp_path / ".codex").mkdir()
     installs = CodexExtractor().find_installations(Path.home())
     assert tmp_path / ".codex" in installs
+
+
+def test_developer_memory_block_extracted_in_order(tmp_path):
+    install = tmp_path / ".codex"
+    session = install / "sessions" / "rollout-dev.jsonl"
+    write_rollout(
+        session,
+        [
+            {"type": "session_meta", "payload": {"id": "dev"}},
+            {
+                "type": "response_item",
+                "timestamp": "t1",
+                "payload": {
+                    "type": "message",
+                    "role": "developer",
+                    "content": [
+                        {"type": "input_text", "text": "## Memory\nUse memory files proactively."}
+                    ],
+                },
+            },
+            {
+                "type": "event_msg",
+                "timestamp": "t2",
+                "payload": {
+                    "type": "user_message",
+                    "message": "# AGENTS.md instructions\nbody",
+                },
+            },
+            {
+                "type": "event_msg",
+                "timestamp": "t3",
+                "payload": {"type": "user_message", "message": "fix the bug"},
+            },
+            {
+                "type": "event_msg",
+                "timestamp": "t4",
+                "payload": {"type": "agent_message", "message": "fixed"},
+            },
+        ],
+    )
+
+    conv = next(iter(CodexExtractor().extract(install)))
+
+    # The developer Memory block lands before the AGENTS.md user message,
+    # mirroring the conditioning order Codex presents to the model.
+    assert [(m["role"], m["content"]) for m in conv["messages"]] == [
+        ("developer", "## Memory\nUse memory files proactively."),
+        ("user", "# AGENTS.md instructions\nbody"),
+        ("user", "fix the bug"),
+        ("assistant", "fixed"),
+    ]
