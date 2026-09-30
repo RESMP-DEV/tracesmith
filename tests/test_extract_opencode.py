@@ -165,5 +165,5 @@ def test_find_installations_discovers_cli(tmp_path, monkeypatch):
     monkeypatch.setenv("HOME", str(tmp_path))
     monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / ".local" / "share"))
     (tmp_path / ".local" / "share" / "opencode").mkdir(parents=True)
-    installs = OpenCodeExtractor().find_installations()
+    installs = OpenCodeExtractor().find_installations(Path.home())
     assert any(p.name == "opencode" for p in installs)

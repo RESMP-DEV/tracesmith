@@ -407,5 +407,5 @@ def test_extract_empty_install(tmp_path):
 def test_find_installations_discovers_codex(tmp_path, monkeypatch):
     monkeypatch.setenv("HOME", str(tmp_path))
     (tmp_path / ".codex").mkdir()
-    installs = CodexExtractor().find_installations()
+    installs = CodexExtractor().find_installations(Path.home())
     assert tmp_path / ".codex" in installs

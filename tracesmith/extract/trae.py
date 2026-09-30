@@ -15,10 +15,10 @@ from typing import Iterator
 from tracesmith.extract.base import Conversation
 
 
-def find_trae_installations() -> list[Path]:
+def find_trae_installations(root: Path) -> list[Path]:
     """Find all Trae installation directories"""
     system = platform.system()
-    home = Path.home()
+    home = root
 
     locations: list[Path] = []
 
@@ -241,8 +241,8 @@ def extract_trae_data(installation: Path) -> list[Conversation]:
 class TraeExtractor:
     source = "trae"
 
-    def find_installations(self) -> list[Path]:
-        return find_trae_installations()
+    def find_installations(self, root: Path) -> list[Path]:
+        return find_trae_installations(root)
 
     def extract(self, install_dir: Path) -> Iterator[Conversation]:
         for conv in extract_trae_data(install_dir):

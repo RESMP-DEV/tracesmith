@@ -14,10 +14,10 @@ from typing import Iterator
 from tracesmith.extract.base import Conversation
 
 
-def find_claude_installations() -> list[Path]:
+def find_claude_installations(root: Path) -> list[Path]:
     """Find all Claude Code installation directories."""
     system = platform.system()
-    home = Path.home()
+    home = root
 
     locations: list[Path] = []
     if system == "Darwin":
@@ -238,8 +238,8 @@ def extract_claude_project_conversations(project_dir: Path) -> list[Conversation
 class ClaudeCodeExtractor:
     source = "claude_code"
 
-    def find_installations(self) -> list[Path]:
-        return find_claude_installations()
+    def find_installations(self, root: Path) -> list[Path]:
+        return find_claude_installations(root)
 
     def extract(self, install_dir: Path) -> Iterator[Conversation]:
         for conv in extract_claude_project_conversations(install_dir):

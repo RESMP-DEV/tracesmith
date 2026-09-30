@@ -11,13 +11,13 @@ from typing import Iterator
 from tracesmith.extract.base import Conversation
 
 
-def find_continue_installations() -> list[Path]:
+def find_continue_installations(root: Path) -> list[Path]:
     """Find all Continue installation directories.
 
     Continue stores sessions under ``~/.continue/sessions``. The install
     directory we hand to ``extract`` is ``~/.continue``.
     """
-    continue_dir = Path.home() / ".continue"
+    continue_dir = root / ".continue"
     return [continue_dir] if continue_dir.exists() else []
 
 
@@ -115,8 +115,8 @@ def extract_continue_sessions(install_dir: Path) -> list[Conversation]:
 class ContinueExtractor:
     source = "continue"
 
-    def find_installations(self) -> list[Path]:
-        return find_continue_installations()
+    def find_installations(self, root: Path) -> list[Path]:
+        return find_continue_installations(root)
 
     def extract(self, install_dir: Path) -> Iterator[Conversation]:
         for conv in extract_continue_sessions(install_dir):

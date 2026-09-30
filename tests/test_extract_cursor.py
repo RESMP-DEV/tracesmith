@@ -144,5 +144,5 @@ def test_extract_empty_install(tmp_path):
 def test_find_installations_discovers_cursor(tmp_path, monkeypatch):
     monkeypatch.setenv("HOME", str(tmp_path))
     (tmp_path / "Library" / "Application Support" / "Cursor").mkdir(parents=True)
-    installs = CursorExtractor().find_installations()
+    installs = CursorExtractor().find_installations(Path.home())
     assert any(p.name == "Cursor" for p in installs)

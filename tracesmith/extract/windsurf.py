@@ -15,10 +15,10 @@ from typing import Iterator
 from tracesmith.extract.base import Conversation
 
 
-def find_windsurf_installations() -> list[Path]:
+def find_windsurf_installations(root: Path) -> list[Path]:
     """Find all Windsurf installation directories"""
     system = platform.system()
-    home = Path.home()
+    home = root
 
     locations: list[Path] = []
 
@@ -286,8 +286,8 @@ def extract_windsurf_conversations(installation: Path) -> list[Conversation]:
 class WindsurfExtractor:
     source = "windsurf"
 
-    def find_installations(self) -> list[Path]:
-        return find_windsurf_installations()
+    def find_installations(self, root: Path) -> list[Path]:
+        return find_windsurf_installations(root)
 
     def extract(self, install_dir: Path) -> Iterator[Conversation]:
         for conv in extract_windsurf_conversations(install_dir):

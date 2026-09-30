@@ -361,5 +361,5 @@ def test_find_installations_discovers_dotclaude(tmp_path, monkeypatch):
     (tmp_path / ".claude").mkdir()
 
     ext = ClaudeCodeExtractor()
-    installs = ext.find_installations()
+    installs = ext.find_installations(Path.home())
     assert tmp_path / ".claude" in installs

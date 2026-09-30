@@ -58,7 +58,7 @@ def run_extract(
             raise ValueError(f"unknown source: {name!r}. available: {available_sources()}")
         extractor = EXTRACTORS[name]()
         records: list[Conversation] = []
-        for install in extractor.find_installations():
+        for install in extractor.find_installations(root):
             records.extend(extractor.extract(install))
         _write_jsonl(raw_dir / f"{name}.jsonl", records)
         counts[name] = len(records)

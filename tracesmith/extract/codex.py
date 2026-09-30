@@ -15,10 +15,10 @@ from typing import Iterator
 from tracesmith.extract.base import Conversation
 
 
-def find_codex_installations() -> list[Path]:
+def find_codex_installations(root: Path) -> list[Path]:
     """Find all Codex installation directories."""
     system = platform.system()
-    home = Path.home()
+    home = root
 
     locations: list[Path] = []
 
@@ -307,8 +307,8 @@ def extract_codex_conversations(installation: Path) -> list[Conversation]:
 class CodexExtractor:
     source = "codex"
 
-    def find_installations(self) -> list[Path]:
-        return find_codex_installations()
+    def find_installations(self, root: Path) -> list[Path]:
+        return find_codex_installations(root)
 
     def extract(self, install_dir: Path) -> Iterator[Conversation]:
         for conv in extract_codex_conversations(install_dir):

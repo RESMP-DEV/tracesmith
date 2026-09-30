@@ -24,10 +24,10 @@ from typing import Iterator
 from tracesmith.extract.base import Conversation
 
 
-def find_cursor_installations() -> list[Path]:
+def find_cursor_installations(root: Path) -> list[Path]:
     """Find all Cursor installation directories"""
     system = platform.system()
-    home = Path.home()
+    home = root
 
     locations = []
 
@@ -549,8 +549,8 @@ def extract_cursor_conversations(installation: Path) -> list[Conversation]:
 class CursorExtractor:
     source = "cursor"
 
-    def find_installations(self) -> list[Path]:
-        return find_cursor_installations()
+    def find_installations(self, root: Path) -> list[Path]:
+        return find_cursor_installations(root)
 
     def extract(self, install_dir: Path) -> Iterator[Conversation]:
         for conv in extract_cursor_conversations(install_dir):

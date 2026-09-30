@@ -90,5 +90,5 @@ def test_extract_empty_install(tmp_path):
 def test_find_installations_discovers_windsurf(tmp_path, monkeypatch):
     monkeypatch.setenv("HOME", str(tmp_path))
     (tmp_path / "Library" / "Application Support" / "Windsurf").mkdir(parents=True)
-    installs = WindsurfExtractor().find_installations()
+    installs = WindsurfExtractor().find_installations(Path.home())
     assert any(p.name == "Windsurf" for p in installs)

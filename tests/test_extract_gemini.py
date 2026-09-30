@@ -126,5 +126,5 @@ def test_extract_empty_install(tmp_path):
 def test_find_installations_discovers_gemini(tmp_path, monkeypatch):
     monkeypatch.setenv("HOME", str(tmp_path))
     (tmp_path / ".gemini").mkdir()
-    installs = GeminiExtractor().find_installations()
+    installs = GeminiExtractor().find_installations(Path.home())
     assert tmp_path / ".gemini" in installs

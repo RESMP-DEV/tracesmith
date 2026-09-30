@@ -14,10 +14,10 @@ from typing import Iterator
 from tracesmith.extract.base import Conversation
 
 
-def find_gemini_installations() -> list[Path]:
+def find_gemini_installations(root: Path) -> list[Path]:
     """Find all Gemini CLI installation directories."""
     system = platform.system()
-    home = Path.home()
+    home = root
 
     locations: list[Path] = []
 
@@ -200,8 +200,8 @@ def extract_gemini_conversations(installation: Path) -> list[Conversation]:
 class GeminiExtractor:
     source = "gemini"
 
-    def find_installations(self) -> list[Path]:
-        return find_gemini_installations()
+    def find_installations(self, root: Path) -> list[Path]:
+        return find_gemini_installations(root)
 
     def extract(self, install_dir: Path) -> Iterator[Conversation]:
         for conv in extract_gemini_conversations(install_dir):

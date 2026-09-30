@@ -81,5 +81,5 @@ def test_extract_empty_install(tmp_path):
 def test_find_installations_discovers_trae(tmp_path, monkeypatch):
     monkeypatch.setenv("HOME", str(tmp_path))
     (tmp_path / ".trae").mkdir()
-    installs = TraeExtractor().find_installations()
+    installs = TraeExtractor().find_installations(Path.home())
     assert tmp_path / ".trae" in installs
