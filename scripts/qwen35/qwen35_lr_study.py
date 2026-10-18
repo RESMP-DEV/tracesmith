@@ -16,8 +16,8 @@ import optuna
 import yaml
 
 ROOT = Path("/home/kearm/training")
-PYTHON = ROOT / "distillkit-tracesmith/.venv/bin/python"
-DISTILLKIT = ROOT / "distillkit-tracesmith/.venv/bin/distillkit"
+PYTHON = Path("/home/kearm/distillkit-tracesmith/.venv/bin/python")
+DISTILLKIT = Path("/home/kearm/distillkit-tracesmith/.venv/bin/distillkit")
 BASE_CONFIG = ROOT / "qwen35-distill-windows.yml"
 STUDY_ROOT = ROOT / "studies/qwen35-lr"
 STORAGE = f"sqlite:///{STUDY_ROOT / 'study.db'}"
