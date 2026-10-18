@@ -233,7 +233,9 @@ def extract_codex_session(session_file: Path) -> Conversation | None:
                             origin='response_item',
                             message_model=model if role == 'assistant' else None,
                         )
-                    elif payload_type in {'function_call', 'custom_tool_call'}:
+                    elif payload_type in {
+                        'function_call', 'custom_tool_call', 'web_search_call',
+                    }:
                         if first_event(seen_tool_calls, payload):
                             tool_call_count += 1
                     elif payload_type in {'function_call_output', 'custom_tool_call_output'}:

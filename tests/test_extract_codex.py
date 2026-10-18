@@ -285,6 +285,39 @@ def test_extracts_current_codex_shape_observed_in_local_rollouts(tmp_path):
     }
 
 
+def test_counts_native_web_search_calls(tmp_path):
+    install = tmp_path / ".codex"
+    session = install / "sessions" / "rollout-web.jsonl"
+    write_rollout(
+        session,
+        [
+            {"type": "session_meta", "payload": {"id": "web"}},
+            {
+                "type": "event_msg",
+                "payload": {"type": "user_message", "message": "research it"},
+            },
+            {
+                "type": "event_msg",
+                "payload": {"type": "agent_message", "message": "found it"},
+            },
+            {
+                "type": "response_item",
+                "payload": {
+                    "type": "web_search_call",
+                    "id": "web-1",
+                    "status": "completed",
+                    "action": {"type": "search", "query": "current evidence"},
+                },
+            },
+        ],
+    )
+
+    conv = next(iter(CodexExtractor().extract(install)))
+
+    assert conv["tool_call_count"] == 1
+    assert "tool_result_count" not in conv
+
+
 def test_both_event_families_describe_one_tool_call(tmp_path):
     install = tmp_path / ".codex"
     session = install / "sessions" / "rollout-dedup.jsonl"
