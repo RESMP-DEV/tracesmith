@@ -10,6 +10,7 @@ from tracesmith.distillkit import build_distillkit_dataset
 
 
 def test_builds_deterministic_train_eval_dataset(tmp_path: Path) -> None:
+    """Splitting keeps every row of a conversation in one dataset split."""
     pytest.importorskip("datasets")
     from datasets import load_from_disk
 
@@ -64,12 +65,51 @@ def test_builds_deterministic_train_eval_dataset(tmp_path: Path) -> None:
 
 
 def test_rejects_missing_variant_field(tmp_path: Path) -> None:
+    """Reject exports that do not match the requested variant schema."""
     source = tmp_path / "export"
     write_jsonl(source / "sharegpt.jsonl", [{"messages": []}])
 
     with pytest.raises(ValueError, match="missing required field"):
         build_distillkit_dataset(
             source,
+            tmp_path / "dataset",
+            variant="sharegpt",
+            eval_fraction=0.2,
+            seed=17,
+        )
+
+
+def test_eval_fraction_floors_small_group_counts(tmp_path: Path) -> None:
+    """Avoid banker's rounding when the corpus has only three conversations."""
+    pytest.importorskip("datasets")
+
+    source = tmp_path / "export"
+    rows = [
+        {
+            "conversations": [{"from": "user", "value": f"prompt {index}"}],
+            "metadata": {"trace_id": f"trace-{index}"},
+        }
+        for index in range(3)
+    ]
+    write_jsonl(source / "sharegpt.jsonl", rows)
+
+    receipt = build_distillkit_dataset(
+        source,
+        tmp_path / "dataset",
+        variant="sharegpt",
+        eval_fraction=0.5,
+        seed=17,
+    )
+
+    assert receipt["eval_conversations"] == 1
+    assert receipt["train_conversations"] == 2
+
+
+def test_missing_source_has_actionable_error(tmp_path: Path) -> None:
+    """A missing export produces an actionable error before dataset loading."""
+    with pytest.raises(FileNotFoundError, match="tracesmith export"):
+        build_distillkit_dataset(
+            tmp_path,
             tmp_path / "dataset",
             variant="sharegpt",
             eval_fraction=0.2,

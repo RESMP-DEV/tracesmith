@@ -11,6 +11,7 @@ from typing import Any
 
 
 def _read_rows(path: Path, variant: str) -> list[dict[str, Any]]:
+    """Read export rows and retain metadata needed for grouped splits."""
     required = "messages" if variant == "messages" else "conversations"
     rows: list[dict[str, Any]] = []
     with path.open(encoding="utf-8") as handle:
@@ -34,6 +35,7 @@ def build_distillkit_dataset(
     eval_fraction: float,
     seed: int,
 ) -> dict[str, Any]:
+    """Write a deterministic conversation-grouped DatasetDict for DistillKit."""
     if variant not in {"messages", "sharegpt"}:
         raise ValueError("variant must be 'messages' or 'sharegpt'")
     if not 0.0 < eval_fraction < 1.0:
@@ -47,6 +49,11 @@ def build_distillkit_dataset(
         ) from exc
 
     source = in_dir / f"{variant}.jsonl"
+    if not source.is_file():
+        raise FileNotFoundError(
+            f"Expected export file not found: {source}. "
+            "Run 'tracesmith export' first or check --in directory."
+        )
     rows = _read_rows(source, variant)
     groups: dict[str, list[int]] = defaultdict(list)
     for index, row in enumerate(rows):
@@ -60,7 +67,7 @@ def build_distillkit_dataset(
 
     group_ids = sorted(groups)
     random.Random(seed).shuffle(group_ids)
-    eval_group_count = max(1, round(len(group_ids) * eval_fraction))
+    eval_group_count = max(1, int(len(group_ids) * eval_fraction))
     if eval_group_count >= len(group_ids):
         raise ValueError("dataset is too small for a non-empty train split")
     eval_groups = set(group_ids[:eval_group_count])
@@ -88,7 +95,7 @@ def build_distillkit_dataset(
         "schema_version": 1,
         "variant": variant,
         "source": str(source),
-        "source_sha256": hashlib.sha256(source.read_bytes()).hexdigest(),
+        "source_sha256": _sha256(source),
         "seed": seed,
         "eval_fraction": eval_fraction,
         "train_rows": len(train_rows),
@@ -104,5 +111,15 @@ def build_distillkit_dataset(
 
 
 def _public_row(row: dict[str, Any], variant: str) -> dict[str, Any]:
+    """Return only the training field expected by DistillKit."""
     required = "messages" if variant == "messages" else "conversations"
     return {required: row[required]}
+
+
+def _sha256(path: Path) -> str:
+    """Hash a potentially large export without reading it entirely into memory."""
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()

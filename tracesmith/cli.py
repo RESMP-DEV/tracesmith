@@ -184,7 +184,10 @@ def distillkit_cmd(
     from tracesmith.distillkit import build_distillkit_dataset
 
     if not 0.0 < eval_fraction < 1.0:
-        raise click.BadParameter("must be between 0 and 1 exclusively")
+        raise click.BadParameter(
+            "must be between 0 and 1 exclusively",
+            param_hint="--eval-fraction",
+        )
 
     receipt = build_distillkit_dataset(
         Path(in_dir),
