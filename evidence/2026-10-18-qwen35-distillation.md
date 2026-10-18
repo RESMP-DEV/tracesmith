@@ -75,3 +75,56 @@ broad coding-agent capability from cross-entropy alone.
   source conversation.
 - The final Fable model and the Infatoshi-window model remain pending live
   completion and final held-out evaluation at the time of this entry.
+
+## Learning-rate provenance and measured study
+
+The original full-run value `3e-6` was a conservative hand choice inherited from
+the earlier `5e-6` Qwen3 pilot; it was not measured for this corpus. A bounded
+sequential study then ran nine successful real-model trials. Each trial started
+from the same Qwen3.5-0.8B student, consumed the same 800-row windowed train
+slice for 100 optimizer steps, used the same online Qwen3.5-4B teacher, and was
+scored on the same fixed 200-row/125,004-token held-out slice.
+
+- Hand-set `3e-6`: CE `1.7465055597590995`.
+- Best measured LR `9.668806547836171e-6`: CE `1.446322741842183`.
+- The best probe remained numerically stable; its logged gradient norms ended
+  near `5.6` rather than diverging.
+- Study summary:
+  `/home/kearm/training/studies/qwen35-lr/summary.json`.
+- The full Infatoshi-window config was updated to the measured best value and
+  its pre-study config is retained as
+  `/home/kearm/training/qwen35-distill-windows.pre-lr-study.yml`.
+- One trial-0 launcher attempt failed before training because of a bad study
+  executable path; it is recorded as failed and excluded from the nine
+  successful measurements.
+
+## Attention and linear-attention capability
+
+The Qwen3.5-0.8B text model has 24 layers: 18 linear-attention layers and 6
+full-attention layers. The active environment already uses optimized kernels
+for the linear path:
+
+- `flash-linear-attention==0.5.2`; direct wrapper introspection showed the
+  FLA `chunk_gated_delta_rule` implementation is selected.
+- `causal_conv1d==1.7.0`.
+- PyTorch `2.14.1+cu130` with SDPA's flash backend enabled.
+
+A restricted live SDPA probe on the RTX3090 Ti executed the PyTorch flash
+forward kernel and produced finite forward/backward values at head dimensions
+64, 128, and 256. At Qwen's head dimension 256, profiler evidence showed both
+the split-KV flash forward kernel and its combine kernel. Receipt:
+`/home/kearm/training/eval/sdpa-flash-capability-probe.json`.
+
+FlexAttention imports and completed a small causal forward/backward probe, but
+without `torch.compile` it warned that it materialized the full score matrix.
+It is not wired into the Qwen3.5 model path. The separate `flash-attn` package
+is also absent; installing it would not obviously improve the six full-attention
+layers because SDPA is already dispatching to PyTorch's flash kernel. A live
+model-level A/B roofline is the required gate before replacing SDPA or wiring
+FlexAttention. Receipt:
+`/home/kearm/training/eval/attention-capability-probe.json`.
+
+The measured-LR Infatoshi-window run was launched in detached tmux session
+`qwen35-infatoshi-windows` after the study. Its architecture guard passed and
+early step-16 behavior was stable. This entry does not claim that run's final
+quality before its identical held-out evaluation completes.
