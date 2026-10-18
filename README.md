@@ -35,6 +35,7 @@ pip install -e .
 pip install -e ".[publish]"          # huggingface_hub, for `tracesmith publish`
 pip install -e ".[privacy-filter]"   # transformers + torch, for the optional privacy filter
 pip install -e ".[dev]"              # pytest + pytest-cov, for running the suite
+pip install -e ".[distillkit]"       # datasets 3.x/4.x, for local DistillKit splits
 ```
 
 The optional redaction layers have extra, non-Python dependencies:
@@ -76,6 +77,7 @@ Then inspect before you publish:
 tracesmith verify --in ./output/redacted     # scan for leftover PII (exits 1 on findings)
 tracesmith stats  --in ./output/export       # corpus metrics as JSON
 tracesmith sample --in ./output/export -n 5 --out ./preview   # random 5-row preview
+tracesmith distillkit --in ./output/export --out ./dataset --variant sharegpt --eval-fraction 0.2
 ```
 
 Happy? Publish:
@@ -202,6 +204,24 @@ tracesmith sample [--in ./output/export] [-n 10] [--seed 0] [--out DIR]
 
 Sample `n` random conversations for pre-publish inspection. With `--out`, also
 writes `sample.jsonl`. Seeded for reproducibility.
+
+### `tracesmith distillkit`
+
+```
+tracesmith distillkit [--in ./output/export] --out ./dataset
+                     [--variant messages|sharegpt] [--eval-fraction 0.2]
+                     [--seed 17]
+```
+
+Write a local Hugging Face `DatasetDict` with `train` and `eval` splits.
+Splits are grouped by `metadata.trace_id`, so every ShareGPT pair from a
+conversation stays on one side. The source export, split counts, seed, SHA-256,
+UTC timestamp, and TraceSmith version are recorded in
+`DISTILLKIT_RECEIPT.json`. Use `verify_distillkit_dataset` or rerun this command
+with a new output to regenerate a provenance-checked split.
+
+This optional command requires the `[distillkit]` extra. The extra is bounded to
+`datasets>=3.5,<5` so the saved split format matches DistillKit's loader.
 
 ---
 
