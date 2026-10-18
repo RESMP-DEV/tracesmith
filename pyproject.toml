@@ -15,6 +15,7 @@ dependencies = ["click>=8.1"]
 privacy-filter = ["transformers>=4.40", "torch>=2.1"]
 gitleaks = []  # gitleaks is an external binary; no python deps
 publish = ["huggingface_hub>=0.20"]
+distillkit = ["datasets>=3.5"]
 dev = ["pytest>=7.4", "pytest-cov>=4.1"]
 
 [project.scripts]
