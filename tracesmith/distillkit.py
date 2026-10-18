@@ -15,12 +15,15 @@ def _read_rows(path: Path, variant: str) -> list[dict[str, Any]]:
     required = "messages" if variant == "messages" else "conversations"
     rows: list[dict[str, Any]] = []
     with path.open(encoding="utf-8") as handle:
-        for line in handle:
+        for line_number, line in enumerate(handle, start=1):
             if not line.strip():
                 continue
             row = json.loads(line)
-            if required not in row:
-                raise ValueError(f"row is missing required field {required!r}")
+            if not isinstance(row, dict) or not isinstance(row.get(required), list):
+                # ValueError keeps malformed user input in the CLI error path.
+                raise ValueError(  # noqa: TRY004
+                    f"{path}:{line_number}: row is missing required field {required!r}"
+                )
             rows.append(row)
     if not rows:
         raise ValueError(f"{path} contains no usable rows")
@@ -41,13 +44,6 @@ def build_distillkit_dataset(
     if not 0.0 < eval_fraction < 1.0:
         raise ValueError("eval_fraction must be between 0 and 1")
 
-    try:
-        from datasets import Dataset, DatasetDict
-    except ImportError as exc:
-        raise RuntimeError(
-            "Install TraceSmith with the distillkit extra: pip install '.[distillkit]'"
-        ) from exc
-
     source = in_dir / f"{variant}.jsonl"
     if not source.is_file():
         raise FileNotFoundError(
@@ -55,14 +51,23 @@ def build_distillkit_dataset(
             "Run 'tracesmith export' first or check --in directory."
         )
     rows = _read_rows(source, variant)
+
+    try:
+        from datasets import Dataset, DatasetDict
+    except ImportError as exc:
+        raise RuntimeError(
+            "Install TraceSmith with the distillkit extra: pip install '.[distillkit]'"
+        ) from exc
+
     groups: dict[str, list[int]] = defaultdict(list)
     for index, row in enumerate(rows):
         metadata = row.get("metadata")
-        trace_id = (
-            str(metadata.get("trace_id"))
-            if isinstance(metadata, dict) and metadata.get("trace_id")
-            else f"row:{index}"
-        )
+        if not isinstance(metadata, dict) or not metadata.get("trace_id"):
+            raise ValueError(
+                f"row {index} is missing metadata.trace_id; "
+                "cannot preserve conversation-level splits"
+            )
+        trace_id = str(metadata["trace_id"])
         groups[trace_id].append(index)
 
     group_ids = sorted(groups)

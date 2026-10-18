@@ -4,8 +4,10 @@ import hashlib
 from pathlib import Path
 
 import pytest
+from click.testing import CliRunner
 
 from tests.conftest import write_jsonl
+from tracesmith.cli import cli
 from tracesmith.distillkit import build_distillkit_dataset
 
 
@@ -79,6 +81,37 @@ def test_rejects_missing_variant_field(tmp_path: Path) -> None:
         )
 
 
+def test_rejects_missing_trace_id(tmp_path: Path) -> None:
+    """Reject data that cannot preserve conversation-level split boundaries."""
+    source = tmp_path / "export"
+    write_jsonl(source / "sharegpt.jsonl", [{"conversations": []}])
+
+    with pytest.raises(ValueError, match="metadata.trace_id"):
+        build_distillkit_dataset(
+            source,
+            tmp_path / "dataset",
+            variant="sharegpt",
+            eval_fraction=0.2,
+            seed=17,
+        )
+
+
+def test_rejects_malformed_json_row_type(tmp_path: Path) -> None:
+    """Reject malformed JSON before it reaches the Arrow serializer."""
+    source = tmp_path / "export"
+    source.mkdir()
+    (source / "sharegpt.jsonl").write_text('"conversations"\n', encoding="utf-8")
+
+    with pytest.raises(ValueError, match="sharegpt.jsonl:1"):
+        build_distillkit_dataset(
+            source,
+            tmp_path / "dataset",
+            variant="sharegpt",
+            eval_fraction=0.2,
+            seed=17,
+        )
+
+
 def test_eval_fraction_floors_small_group_counts(tmp_path: Path) -> None:
     """Avoid banker's rounding when the corpus has only three conversations."""
     pytest.importorskip("datasets")
@@ -115,3 +148,20 @@ def test_missing_source_has_actionable_error(tmp_path: Path) -> None:
             eval_fraction=0.2,
             seed=17,
         )
+
+
+def test_distillkit_cli_reports_input_errors(tmp_path: Path) -> None:
+    """Expected builder failures produce Click errors rather than tracebacks."""
+    result = CliRunner().invoke(
+        cli,
+        [
+            "distillkit",
+            "--in",
+            str(tmp_path),
+            "--out",
+            str(tmp_path / "dataset"),
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "Expected export file not found" in result.output

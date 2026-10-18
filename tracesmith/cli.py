@@ -189,13 +189,16 @@ def distillkit_cmd(
             param_hint="--eval-fraction",
         )
 
-    receipt = build_distillkit_dataset(
-        Path(in_dir),
-        Path(out_dir),
-        variant=variant,
-        eval_fraction=eval_fraction,
-        seed=seed,
-    )
+    try:
+        receipt = build_distillkit_dataset(
+            Path(in_dir),
+            Path(out_dir),
+            variant=variant,
+            eval_fraction=eval_fraction,
+            seed=seed,
+        )
+    except (ValueError, RuntimeError, FileNotFoundError) as exc:
+        raise click.ClickException(str(exc)) from exc
     click.echo(
         f"Wrote {receipt['output']}: train={receipt['train_rows']} "
         f"eval={receipt['eval_rows']}"
