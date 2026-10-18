@@ -166,7 +166,7 @@ def convert_file(
 
     while messages and messages[-1]["role"] != "assistant":
         messages.pop()
-    if len(messages) < 2 or messages[0]["role"] != "user":
+    if len(messages) < 2:
         return None, bad_lines
 
     session_id = relative.with_suffix("").as_posix()

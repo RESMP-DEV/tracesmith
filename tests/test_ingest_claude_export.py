@@ -265,3 +265,49 @@ def test_import_claude_rejects_unsafe_source_name(tmp_path):
 
     assert result.exit_code != 0
     assert not (out / "raw_extracted").exists()
+
+
+def test_import_claude_accepts_tool_first_session(tmp_path):
+    source = tmp_path / "source"
+    records = [
+        {
+            "type": "user",
+            "message": {
+                "content": [
+                    {"type": "tool_result", "tool_use_id": "t1", "content": "4 ms"}
+                ]
+            },
+        },
+        {
+            "type": "assistant",
+            "message": {
+                "model": "claude-opus-5",
+                "content": [{"type": "text", "text": "tune tiles"}],
+            },
+        },
+    ]
+    write_trace(source / "trace.jsonl", records)
+    out = tmp_path / "out"
+
+    result = CliRunner().invoke(
+        cli,
+        [
+            "import-claude",
+            "--source-dir",
+            str(source),
+            "--out",
+            str(out),
+            "--source-name",
+            "public",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    rows = [
+        json.loads(line)
+        for line in (out / "raw_extracted/public.jsonl").read_text().splitlines()
+    ]
+    assert [message["role"] for message in rows[0]["messages"]] == [
+        "tool",
+        "assistant",
+    ]
