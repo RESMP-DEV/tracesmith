@@ -194,7 +194,7 @@ def distillkit_cmd(
             eval_fraction=eval_fraction,
             seed=seed,
         )
-    except (ValueError, RuntimeError, FileNotFoundError) as exc:
+    except (ValueError, RuntimeError, FileNotFoundError, FileExistsError) as exc:
         raise click.ClickException(str(exc)) from exc
     click.echo(
         f"Wrote {receipt['output']}: train={receipt['train_rows']} "

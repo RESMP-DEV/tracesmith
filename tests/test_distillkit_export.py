@@ -101,6 +101,29 @@ def test_rejects_missing_trace_id(tmp_path: Path) -> None:
         )
 
 
+def test_rejects_null_trace_id(tmp_path: Path) -> None:
+    """Reject null IDs instead of grouping unrelated conversations as 'None'."""
+    export_dir = tmp_path / "export"
+    write_jsonl(
+        export_dir / "sharegpt.jsonl",
+        [
+            {
+                "conversations": [{"from": "user", "value": "prompt"}],
+                "metadata": {"trace_id": None},
+            }
+        ],
+    )
+
+    with pytest.raises(ValueError, match="metadata.trace_id"):
+        build_distillkit_dataset(
+            export_dir,
+            tmp_path / "dataset",
+            variant="sharegpt",
+            eval_fraction=0.2,
+            seed=17,
+        )
+
+
 def test_rejects_malformed_json_row_type(tmp_path: Path) -> None:
     """Reject malformed JSON before it reaches the Arrow serializer."""
     source = tmp_path / "export"
@@ -199,3 +222,37 @@ def test_distillkit_cli_reports_input_errors(tmp_path: Path) -> None:
 
     assert result.exit_code != 0
     assert "Expected export file not found" in result.output
+
+
+def test_distillkit_cli_reports_existing_output(tmp_path: Path) -> None:
+    """An existing output path is a clean CLI error, not a traceback."""
+    export_dir = tmp_path / "export"
+    write_jsonl(
+        export_dir / "sharegpt.jsonl",
+        [
+            {
+                "conversations": [{"from": "user", "value": "prompt"}],
+                "metadata": {"trace_id": 0},
+            },
+            {
+                "conversations": [{"from": "assistant", "value": "reply"}],
+                "metadata": {"trace_id": 1},
+            },
+        ],
+    )
+    output = tmp_path / "dataset"
+    output.mkdir()
+
+    result = CliRunner().invoke(
+        cli,
+        [
+            "distillkit",
+            "--in",
+            str(export_dir),
+            "--out",
+            str(output),
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "output already exists" in result.output

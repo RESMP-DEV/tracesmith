@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import heapq
 import json
 import os
 import shutil
@@ -40,9 +41,10 @@ def _iter_rows(path: Path, variant: str) -> Iterator[tuple[int, str, dict[str, A
                     f"{path}:{line_number}: row has an empty {required!r} field"
                 )
             metadata = row.get("metadata")
-            trace_id = (
-                str(metadata.get("trace_id")) if isinstance(metadata, dict) else ""
+            raw_trace_id = (
+                metadata.get("trace_id") if isinstance(metadata, dict) else None
             )
+            trace_id = "" if raw_trace_id is None else str(raw_trace_id)
             if (
                 not isinstance(metadata, dict)
                 or "trace_id" not in metadata
@@ -72,10 +74,13 @@ def _eval_groups(group_ids: list[str], eval_fraction: float, seed: int) -> set[s
     eval_count = max(1, int(len(group_ids) * eval_fraction))
     if eval_count >= len(group_ids):
         raise ValueError("dataset is too small for a non-empty train split")
-    ranked = sorted(
-        group_ids, key=lambda group_id: (stable_rank(group_id, seed), group_id)
+    return set(
+        heapq.nsmallest(
+            eval_count,
+            group_ids,
+            key=lambda group_id: (stable_rank(group_id, seed), group_id),
+        )
     )
-    return set(ranked[:eval_count])
 
 
 def stable_rank(group_id: str, seed: int) -> bytes:
@@ -107,7 +112,9 @@ def build_distillkit_dataset(
     if variant not in {"messages", "sharegpt"}:
         raise ValueError("variant must be 'messages' or 'sharegpt'")
     if not 0.0 < eval_fraction < 1.0:
-        raise ValueError("eval_fraction must be between 0 and 1")
+        raise ValueError("eval_fraction must be between 0 and 1 exclusively")
+    if seed < 0:
+        raise ValueError("seed must be non-negative")
 
     source = in_dir / f"{variant}.jsonl"
     if not source.is_file():
@@ -121,6 +128,10 @@ def build_distillkit_dataset(
     eval_groups = _eval_groups(group_ids, eval_fraction, seed)
     source_sha256 = _sha256(source)
 
+    out_dir.parent.mkdir(parents=True, exist_ok=True)
+    if out_dir.exists():
+        raise FileExistsError(f"output already exists: {out_dir}")
+
     try:
         from datasets import Dataset, DatasetDict
     except ImportError as exc:
@@ -128,9 +139,6 @@ def build_distillkit_dataset(
             "Install TraceSmith with the distillkit extra: pip install '.[distillkit]'"
         ) from exc
 
-    out_dir.parent.mkdir(parents=True, exist_ok=True)
-    if out_dir.exists():
-        raise FileExistsError(f"output already exists: {out_dir}")
     temporary_dir = Path(
         tempfile.mkdtemp(prefix=f".{out_dir.name}.tmp-", dir=out_dir.parent)
     )
@@ -159,6 +167,7 @@ def build_distillkit_dataset(
         )
         dataset.save_to_disk(str(temporary_dir))
         if _sha256(source) != source_sha256:
+            # Atomic replacement prevents a mixed-version dataset from reaching output.
             raise RuntimeError("source export changed while building the dataset")
 
         receipt = {
@@ -170,8 +179,8 @@ def build_distillkit_dataset(
             "source_sha256": source_sha256,
             "seed": seed,
             "eval_fraction": eval_fraction,
-            "train_rows": int(dataset["train"].num_rows),
-            "eval_rows": int(dataset["eval"].num_rows),
+            "train_rows": dataset["train"].num_rows,
+            "eval_rows": dataset["eval"].num_rows,
             "train_conversations": len(group_ids) - len(eval_groups),
             "eval_conversations": len(eval_groups),
             "output": str(out_dir),
