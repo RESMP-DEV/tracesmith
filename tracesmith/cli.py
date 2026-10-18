@@ -25,6 +25,26 @@ def extract_cmd(sources: str | None, root: str, out: str) -> None:
         click.echo(f"{k}: {v} records")
 
 
+@cli.command("import-claude")
+@click.option("--source-dir", required=True, type=click.Path(exists=True, file_okay=False))
+@click.option("--out", "out_dir", required=True, type=click.Path(file_okay=False))
+@click.option("--source-name", required=True)
+def import_claude_cmd(source_dir: str, out_dir: str, source_name: str) -> None:
+    """Import an external Claude Code JSONL trace tree."""
+    import json
+
+    from tracesmith.ingest.claude_export import ingest_claude_export
+
+    try:
+        receipt = ingest_claude_export(
+            Path(source_dir), Path(out_dir) / "raw_extracted" / f"{source_name}.jsonl",
+            source_name,
+        )
+    except (OSError, ValueError) as exc:
+        raise click.ClickException(str(exc)) from exc
+    click.echo(json.dumps(receipt, indent=2))
+
+
 @cli.command("redact")
 @click.option("--in", "in_dir", default="./output/raw_extracted", type=click.Path())
 @click.option("--out", "out_dir", default="./output/redacted", type=click.Path())

@@ -4,6 +4,8 @@ __pycache__/
 .pytest_cache/
 .venv/
 .sindexer/
+build/
+.worktrees/
 output/
 extracted_data/
 redacted-agent-traces/

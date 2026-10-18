@@ -105,12 +105,15 @@ Eight extractors, all auto-discovered from the local home directory:
 
 Each source contributes its own `<source>.jsonl` in every stage, so datasets can
 be sliced or dropped per-source (see `--drop-sources` under `export`).
+Externally published Claude Code JSONL trees can enter the same pipeline with
+`tracesmith import-claude`; the importer preserves main-chain tool calls, tool
+results, and reasoning summaries, and writes a source-hash receipt.
 
 ---
 
 ## CLI reference
 
-All eight commands. Defaults are shown.
+All commands. Defaults are shown.
 
 ### `tracesmith run` — the whole pipeline
 
@@ -133,6 +136,21 @@ tracesmith extract [--sources a,b] [--root ~] [--out ./output]
 Scan `--root` for installed agents and write `raw_extracted/<source>.jsonl`.
 Sources with no installation contribute an empty file (downstream stages always
 find a file). With no `--sources`, all 8 are tried.
+
+### `tracesmith import-claude`
+
+```
+tracesmith import-claude --source-dir /path/to/jsonl-tree --out ./output
+                         --source-name external_claude
+```
+
+Import an external Claude Code JSONL tree into `raw_extracted/<source>.jsonl`.
+The command skips sidechain records, preserves the main-chain tool and thinking
+fields, and records the scanned, failed, and skipped file counts, conversation
+count, and SHA-256 source manifest in `<out>/<source>.IMPORT_RECEIPT.json`.
+The command refuses an existing output or receipt, so an explicit source name
+cannot accidentally replace a local extractor result.
+Continue with the normal `redact`, `export`, and `distillkit` commands.
 
 ### `tracesmith redact`
 
