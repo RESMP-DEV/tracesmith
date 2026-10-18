@@ -8,7 +8,7 @@ from click.testing import CliRunner
 
 from tests.conftest import write_jsonl
 from tracesmith.cli import cli
-from tracesmith.distillkit import build_distillkit_dataset
+from tracesmith.distillkit import build_distillkit_dataset, verify_distillkit_dataset
 
 
 def test_builds_deterministic_train_eval_dataset(tmp_path: Path) -> None:
@@ -47,10 +47,12 @@ def test_builds_deterministic_train_eval_dataset(tmp_path: Path) -> None:
     )
 
     dataset = load_from_disk(str(output))
+    verified = verify_distillkit_dataset(output)
     assert set(dataset) == {"train", "eval"}
     assert len(dataset["train"]) + len(dataset["eval"]) == 4
     assert receipt["train_conversations"] == 2
     assert receipt["eval_conversations"] == 1
+    assert verified["source_sha256"] == receipt["source_sha256"]
     source_path = source / "sharegpt.jsonl"
     assert (
         receipt["source_sha256"] == hashlib.sha256(source_path.read_bytes()).hexdigest()
@@ -83,12 +85,15 @@ def test_rejects_missing_variant_field(tmp_path: Path) -> None:
 
 def test_rejects_missing_trace_id(tmp_path: Path) -> None:
     """Reject data that cannot preserve conversation-level split boundaries."""
-    source = tmp_path / "export"
-    write_jsonl(source / "sharegpt.jsonl", [{"conversations": []}])
+    export_dir = tmp_path / "export"
+    write_jsonl(
+        export_dir / "sharegpt.jsonl",
+        [{"conversations": [{"from": "user", "value": "prompt"}]}],
+    )
 
     with pytest.raises(ValueError, match="metadata.trace_id"):
         build_distillkit_dataset(
-            source,
+            export_dir,
             tmp_path / "dataset",
             variant="sharegpt",
             eval_fraction=0.2,
@@ -144,6 +149,35 @@ def test_missing_source_has_actionable_error(tmp_path: Path) -> None:
         build_distillkit_dataset(
             tmp_path,
             tmp_path / "dataset",
+            variant="sharegpt",
+            eval_fraction=0.2,
+            seed=17,
+        )
+
+
+def test_rejects_existing_output_before_writing(tmp_path: Path) -> None:
+    """A failed build cannot overwrite a previously accepted dataset."""
+    export_dir = tmp_path / "export"
+    write_jsonl(
+        export_dir / "sharegpt.jsonl",
+        [
+            {
+                "conversations": [{"from": "user", "value": "prompt"}],
+                "metadata": {"trace_id": "trace-a"},
+            },
+            {
+                "conversations": [{"from": "assistant", "value": "reply"}],
+                "metadata": {"trace_id": "trace-b"},
+            },
+        ],
+    )
+    output = tmp_path / "dataset"
+    output.mkdir()
+
+    with pytest.raises(FileExistsError, match="output already exists"):
+        build_distillkit_dataset(
+            export_dir,
+            output,
             variant="sharegpt",
             eval_fraction=0.2,
             seed=17,

@@ -170,7 +170,7 @@ def stats_cmd(in_dir: str) -> None:
 @click.option(
     "--eval-fraction",
     default=0.2,
-    type=float,
+    type=click.FloatRange(0, 1, min_open=True, max_open=True),
 )
 @click.option("--seed", default=17, type=int)
 def distillkit_cmd(
@@ -182,12 +182,6 @@ def distillkit_cmd(
 ) -> None:
     """Write a deterministic local Hugging Face DatasetDict train/eval split."""
     from tracesmith.distillkit import build_distillkit_dataset
-
-    if not 0.0 < eval_fraction < 1.0:
-        raise click.BadParameter(
-            "must be between 0 and 1 exclusively",
-            param_hint="--eval-fraction",
-        )
 
     try:
         receipt = build_distillkit_dataset(
