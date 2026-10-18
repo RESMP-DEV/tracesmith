@@ -126,9 +126,6 @@ def main() -> None:
     args = parser.parse_args()
 
     STUDY_ROOT.mkdir(parents=True, exist_ok=True)
-    optuna.logging.get_logger("optuna").addHandler(
-        optuna.logging.FileHandler(STUDY_ROOT / "study.log")
-    )
     study = optuna.create_study(
         study_name=STUDY_NAME,
         storage=STORAGE,
