@@ -74,6 +74,14 @@ TraceSmith now exposes this condition instead of silently treating the number
 as a valid hit rate. Correcting the upstream telemetry counter is outside this
 repository.
 
+## Tool-required export check
+
+After the repair, `tracesmith export --require-tools --variant both --dedup`
+retained all 36 conversations with assistant output and all 80 ShareGPT
+pairs. Its only reported filter drop was the one resume shell with no
+assistant output. Before native search calls were counted, the seven cited
+research conversations would have been excluded by this filter.
+
 ## Validation
 
 - Baseline repository: clean at `81ed537`, identical to `origin/main`.
