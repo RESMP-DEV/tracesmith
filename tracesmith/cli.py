@@ -165,7 +165,10 @@ def stats_cmd(in_dir: str) -> None:
     "--variant",
     default="sharegpt",
     type=click.Choice(["messages", "sharegpt"]),
-    help="Export variant to convert. ShareGPT maps developer conditioning to system.",
+    help=(
+        "Export variant to convert. ShareGPT maps system and developer messages "
+        "to the system channel."
+    ),
 )
 @click.option(
     "--eval-fraction",

@@ -40,12 +40,19 @@ def _iter_rows(path: Path, variant: str) -> Iterator[tuple[int, str, dict[str, A
                     f"{path}:{line_number}: row has an empty {required!r} field"
                 )
             metadata = row.get("metadata")
-            if not isinstance(metadata, dict) or not metadata.get("trace_id"):
+            trace_id = (
+                str(metadata.get("trace_id")) if isinstance(metadata, dict) else ""
+            )
+            if (
+                not isinstance(metadata, dict)
+                or "trace_id" not in metadata
+                or not trace_id
+            ):
                 raise ValueError(
                     f"{path}:{line_number}: row is missing metadata.trace_id; "
                     "cannot preserve conversation-level splits"
                 )
-            yield line_number, str(metadata["trace_id"]), row
+            yield line_number, trace_id, row
 
 
 def _scan_groups(path: Path, variant: str) -> dict[str, int]:

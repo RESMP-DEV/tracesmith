@@ -20,11 +20,11 @@ def test_builds_deterministic_train_eval_dataset(tmp_path: Path) -> None:
     rows = [
         {
             "conversations": [{"from": "user", "value": "prompt a-0"}],
-            "metadata": {"trace_id": "trace-a"},
+            "metadata": {"trace_id": 0},
         },
         {
             "conversations": [{"from": "user", "value": "prompt a-1"}],
-            "metadata": {"trace_id": "trace-a"},
+            "metadata": {"trace_id": 0},
         },
         {
             "conversations": [{"from": "user", "value": "prompt b"}],
