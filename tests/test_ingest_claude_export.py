@@ -113,13 +113,16 @@ def test_ingest_claude_export_preserves_training_fields(tmp_path):
     }
     assert [message["role"] for message in conversation["messages"]] == [
         "user",
-        "tool",
         "assistant",
     ]
-    assert conversation["messages"][1]["tool_results"][0]["output"] == "3 ms"
+    assert "run the kernel" in conversation["messages"][0]["content"]
+    assert (
+        '<tool_result id="t1">3 ms</tool_result>'
+        in conversation["messages"][0]["content"]
+    )
     assert conversation["messages"][0]["id"] == "u1"
     assert conversation["messages"][0]["parent_id"] == "u0"
-    assistant = conversation["messages"][2]
+    assistant = conversation["messages"][1]
     assert (
         "<reasoning_summary>measure first</reasoning_summary>" in assistant["content"]
     )
@@ -307,7 +310,7 @@ def test_import_claude_accepts_tool_first_session(tmp_path):
         json.loads(line)
         for line in (out / "raw_extracted/public.jsonl").read_text().splitlines()
     ]
-    assert [message["role"] for message in rows[0]["messages"]] == [
-        "tool",
-        "assistant",
-    ]
+    assert [message["role"] for message in rows[0]["messages"]] == ["user", "assistant"]
+    assert (
+        '<tool_result id="t1">4 ms</tool_result>' in rows[0]["messages"][0]["content"]
+    )

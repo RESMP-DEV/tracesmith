@@ -44,6 +44,7 @@ def _user(record: dict[str, Any]) -> list[Message]:
     if not isinstance(message, dict):
         raise TypeError("message is not an object")
     content = message.get("content")
+    results: list[dict[str, Any]] = []
     if isinstance(content, str):
         text, blocks = content, []
     else:
@@ -55,22 +56,21 @@ def _user(record: dict[str, Any]) -> list[Message]:
             _tool_result(item) for item in blocks if item.get("type") == "tool_result"
         ]
 
-    messages: list[Message] = []
-    if text and not text.startswith("[init] session start"):
-        user: Message = {"role": "user", "content": text}
-        if isinstance(record.get("timestamp"), str):
-            user["timestamp"] = record["timestamp"]
-        if record.get("uuid"):
-            user["id"] = str(record["uuid"])
-        if record.get("parentUuid"):
-            user["parent_id"] = str(record["parentUuid"])
-        messages.append(user)
-    if blocks and any(item.get("type") == "tool_result" for item in blocks):
-        tool: Message = {"role": "tool", "content": "", "tool_results": results}
-        if isinstance(record.get("timestamp"), str):
-            tool["timestamp"] = record["timestamp"]
-        messages.append(tool)
-    return messages
+    parts = [] if not text or text.startswith("[init] session start") else [text]
+    parts.extend(
+        f'<tool_result id="{result["tool_call_id"]}">{result["output"]}</tool_result>'
+        for result in results
+    )
+    if not parts:
+        return []
+    user: Message = {"role": "user", "content": "\n".join(parts)}
+    if isinstance(record.get("timestamp"), str):
+        user["timestamp"] = record["timestamp"]
+    if record.get("uuid"):
+        user["id"] = str(record["uuid"])
+    if record.get("parentUuid"):
+        user["parent_id"] = str(record["parentUuid"])
+    return [user]
 
 
 def _assistant(record: dict[str, Any]) -> Message | None:
