@@ -128,3 +128,36 @@ The measured-LR Infatoshi-window run was launched in detached tmux session
 `qwen35-infatoshi-windows` after the study. Its architecture guard passed and
 early step-16 behavior was stable. This entry does not claim that run's final
 quality before its identical held-out evaluation completes.
+
+## Final measured-LR result
+
+The Infatoshi-window run completed all 2,500 optimizer steps in 7,145 seconds
+(1:59:05), at 2.799 train samples/s and 0.350 optimizer steps/s. Final logged
+train loss was `0.9688`.
+
+On the unchanged 200-row/125,004-token held-out slice:
+
+- Untouched student CE: `2.0192924497192455`.
+- Completed Fable control CE: `1.2590802057102728`.
+- Measured-LR Infatoshi-window CE: `1.2003051938409748`,
+  perplexity `3.3211305141448975`.
+
+It passes both live controls: student-baseline delta is
+`-0.8189872558782707` nats/token and Fable-control delta is
+`-0.05877501186929801` nats/token. Receipt:
+`/home/kearm/training/eval/qwen35-0p8b-infatoshi2431-windows-final-acceptance.json`.
+
+The final local artifact is
+`/home/kearm/training/runs/qwen35-0p8b-infatoshi2431-windows/model.safetensors`
+with SHA-256
+`d70f5bb2f29c6bd455d64c292180cd2e53c12b1abb9b87cc5185e75309bdd8f5`.
+Its architecture-guard receipt hashes to
+`e59bf8865421ce5f5c4c627dd52cba9038d55ae268ca56564507982d49a32243`.
+The dataset-build receipt hashes to
+`a70e287c4f18ef9b7e0e186ec4b118c445af14183a8064a7233e455fe3650950`,
+and the LR-study summary hashes to
+`7d7226ab70b0081c730562d11ead2107765709116d796ad9480d1c096c9e7308`.
+
+All task-owned Qwen3.5 trainer, watcher, and study processes were absent after
+completion. An unrelated H3 attention-profile job remained on GPU 1 and was
+left untouched. No Qwen3.5 artifact or dataset was uploaded.
