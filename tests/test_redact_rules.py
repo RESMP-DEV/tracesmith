@@ -1,11 +1,14 @@
 """Tests for the split rule modules."""
+
 from __future__ import annotations
 
 from tracesmith.redact.rules import RuleContext, build_patterns, redact_string
 from tracesmith.redact.rules.placeholders import PlaceholderBook
 
 
-def make_book_and_patterns(user_name="alexmorgan", home_dir="/Users/alexmorgan", **ctx_kwargs):
+def make_book_and_patterns(
+    user_name="alexmorgan", home_dir="/Users/alexmorgan", **ctx_kwargs
+):
     ctx = RuleContext(user_name=user_name, home_dir=home_dir, **ctx_kwargs)
     book = PlaceholderBook()
     patterns = build_patterns(ctx)
@@ -14,7 +17,9 @@ def make_book_and_patterns(user_name="alexmorgan", home_dir="/Users/alexmorgan",
 
 def test_openai_api_key_redacted():
     book, patterns = make_book_and_patterns()
-    out = redact_string("key=sk-proj-abcdefghijklmnopqrstuvwxyz0123456789ABCD", patterns, book)
+    out = redact_string(
+        "key=sk-proj-abcdefghijklmnopqrstuvwxyz0123456789ABCD", patterns, book
+    )
     assert "[SECRET:OPENAI_API_KEY]" in out
     assert "sk-proj-" not in out
 
@@ -25,9 +30,23 @@ def test_github_token_redacted():
     assert "[SECRET:GITHUB_TOKEN]" in out
 
 
+def test_plain_token_arithmetic_is_not_environment_secret():
+    text = "each CTA does 93 tokens = 6 iterations of BN=32"
+    book, patterns = make_book_and_patterns()
+    assert redact_string(text, patterns, book) == text
+
+
+def test_uppercase_environment_secret_still_redacted():
+    book, patterns = make_book_and_patterns()
+    out = redact_string("API_TOKEN=abcdefgh1234", patterns, book)
+    assert "[SECRET:ENV_VALUE]" in out
+
+
 def test_bearer_token_redacted():
     book, patterns = make_book_and_patterns()
-    out = redact_string("Authorization: Bearer abcdefghijklmnop1234567890", patterns, book)
+    out = redact_string(
+        "Authorization: Bearer abcdefghijklmnop1234567890", patterns, book
+    )
     assert "[SECRET:BEARER_TOKEN]" in out
 
 
@@ -79,6 +98,8 @@ def test_phone_redacted():
 
 def test_jwt_redacted():
     book, patterns = make_book_and_patterns()
-    jwt = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ4In0.abcdefghijklmnopqrstuvwxyz0123456789ABCD"
+    jwt = (
+        "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ4In0.abcdefghijklmnopqrstuvwxyz0123456789ABCD"
+    )
     out = redact_string(jwt, patterns, book)
     assert "[SECRET:JWT]" in out

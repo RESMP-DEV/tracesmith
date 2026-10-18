@@ -1,14 +1,20 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 
 from tracesmith.verify.scanner import scan
 
 
 def test_clean_redacted_dir_passes(tmp_path):
     (tmp_path / "claude_code.jsonl").write_text(
-        json.dumps({"messages": [{"role": "user", "content": "[SECRET:OPENAI_API_KEY] cleaned"}]}) + "\n"
+        json.dumps(
+            {
+                "messages": [
+                    {"role": "user", "content": "[SECRET:OPENAI_API_KEY] cleaned"}
+                ]
+            }
+        )
+        + "\n"
     )
     report = scan(tmp_path)
     assert report.ok, report.leftovers
@@ -16,16 +22,42 @@ def test_clean_redacted_dir_passes(tmp_path):
 
 def test_dir_with_openai_key_fails(tmp_path):
     (tmp_path / "x.jsonl").write_text(
-        json.dumps({"messages": [{"role": "user", "content": "sk-proj-abcdefghijklmnopqrstuvwxyz0123456789ABCD"}]}) + "\n"
+        json.dumps(
+            {
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": "sk-proj-abcdefghijklmnopqrstuvwxyz0123456789ABCD",
+                    }
+                ]
+            }
+        )
+        + "\n"
     )
     report = scan(tmp_path)
     assert not report.ok
     assert any(f.category == "openai_key" for f in report.leftovers)
 
 
+def test_plain_token_arithmetic_is_clean(tmp_path):
+    text = "each CTA does 93 tokens = 6 iterations of BN=32"
+    (tmp_path / "x.jsonl").write_text(
+        json.dumps({"messages": [{"role": "user", "content": text}]}) + "\n"
+    )
+    report = scan(tmp_path)
+    assert report.ok, report.leftovers
+
+
 def test_dir_with_email_fails(tmp_path):
     (tmp_path / "x.jsonl").write_text(
-        json.dumps({"messages": [{"role": "user", "content": "contact alex.morgan@example.com"}]}) + "\n"
+        json.dumps(
+            {
+                "messages": [
+                    {"role": "user", "content": "contact alex.morgan@example.com"}
+                ]
+            }
+        )
+        + "\n"
     )
     report = scan(tmp_path)
     assert not report.ok
