@@ -158,6 +158,50 @@ def stats_cmd(in_dir: str) -> None:
     click.echo(_json.dumps(report, indent=2))
 
 
+@cli.command("distillkit")
+@click.option("--in", "in_dir", default="./output/export", type=click.Path())
+@click.option("--out", "out_dir", required=True, type=click.Path())
+@click.option(
+    "--variant",
+    default="sharegpt",
+    type=click.Choice(["messages", "sharegpt"]),
+    help=(
+        "Export variant to convert. ShareGPT maps system and developer messages "
+        "to the system channel."
+    ),
+)
+@click.option(
+    "--eval-fraction",
+    default=0.2,
+    type=click.FloatRange(0, 1, min_open=True, max_open=True),
+)
+@click.option("--seed", default=17, type=int)
+def distillkit_cmd(
+    in_dir: str,
+    out_dir: str,
+    variant: str,
+    eval_fraction: float,
+    seed: int,
+) -> None:
+    """Write a deterministic local Hugging Face DatasetDict train/eval split."""
+    from tracesmith.distillkit import build_distillkit_dataset
+
+    try:
+        receipt = build_distillkit_dataset(
+            Path(in_dir),
+            Path(out_dir),
+            variant=variant,
+            eval_fraction=eval_fraction,
+            seed=seed,
+        )
+    except (ValueError, RuntimeError, FileNotFoundError, FileExistsError) as exc:
+        raise click.ClickException(str(exc)) from exc
+    click.echo(
+        f"Wrote {receipt['output']}: train={receipt['train_rows']} "
+        f"eval={receipt['eval_rows']}"
+    )
+
+
 @cli.command("sample")
 @click.option("--in", "in_dir", default="./output/export", type=click.Path())
 @click.option("--n", "n", default=10, type=int, help="Number of conversations to sample.")
