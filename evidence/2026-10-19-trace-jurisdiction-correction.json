@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "recorded_at": "2026-10-19T22:24:00+00:00",
+  "operator": "Codex",
+  "summary": "Corrected the repository boundary after creating two task-local trace tools outside TraceSmith.",
+  "decision": {
+    "canonical_owner": "RESMP-DEV/tracesmith",
+    "scope": [
+      "agent trace extraction",
+      "redaction and sanitization",
+      "normalization",
+      "corpus consolidation and deduplication",
+      "provenance manifests",
+      "publication cards and trace-hosting receipts"
+    ],
+    "legacy_repositories": [
+      "RESMP-DEV/codex-trace-sanitizer",
+      "RESMP-DEV/resmp-reprocessor"
+    ],
+    "model_tuning_boundary": "Model trainers own hyperparameter and quality studies after consuming a versioned TraceSmith corpus."
+  },
+  "reason": "The existing TraceSmith README already describes the exact extract, redact, export, manifest pipeline, and its memory scope applies to Codex/Claude trace export, redaction, and private publication. The separate repositories were a task-local ownership error, not a justified architectural exception.",
+  "non_claims": [
+    "This record does not claim the legacy repositories have already been absorbed or retired.",
+    "No trace data, raw rollout, credential, generated corpus, or Hugging Face artifact is committed."
+  ]
+}
