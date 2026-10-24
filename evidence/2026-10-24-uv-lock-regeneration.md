@@ -28,8 +28,8 @@ access. No historical lock bytes were copied.
 
 ## Verification
 
-All commands ran in the isolated integration worktree with
-`UV_CACHE_DIR=/Users/kearm/.cache/alphaheng/uv`.
+All commands ran in the isolated integration worktree with the configured
+machine cache location represented here as `<UV_CACHE_DIR>`.
 
 | Command | Exit | Result |
 | --- | ---: | --- |
